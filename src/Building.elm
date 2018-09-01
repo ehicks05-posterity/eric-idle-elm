@@ -1,6 +1,7 @@
-module Building exposing (..)
+module Building exposing (Building, buildings, defaultBuilding, farms, getByName, huts, libraries, lumberMills, quarries, schools, storerooms)
 
 import Util exposing (..)
+
 
 buildings =
     [ huts
@@ -11,6 +12,7 @@ buildings =
     , schools
     , libraries
     ]
+
 
 type alias Building =
     { name : String
@@ -24,16 +26,20 @@ type alias Building =
     , status : DisplayStatus
     }
 
+
 getByName : String -> List Building -> Building
 getByName name list =
     case List.head (List.filter (\r -> r.name == name) list) of
         Just r ->
             r
+
         Nothing ->
             defaultBuilding
 
+
 defaultBuilding =
     Building "default" "default.png" "default" [ ResourceCost "food" 1 ] [ ResourceLimitMod "villagers" Additive 2 ] 0 Hidden
+
 
 huts =
     Building "huts" "tipi.png" "unlockHuts" [ ResourceCost "food" 1 ] [ ResourceLimitMod "villagers" Additive 2 ] 0 Hidden

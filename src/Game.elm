@@ -1,15 +1,15 @@
-module Game exposing (..)
+module Game exposing (PreReq, noPreReq, preReqs, unlockBuilders, unlockFarming, unlockHunting, unlockHuts, unlockLevelOneTech, unlockLibraries, unlockSchools, unlockStoneConstruction, unlockVillagers, unlockWheel, unlockWoodConstruction, updatePreReq, updatePreReqs)
 
-import Dict exposing (Dict)
-import Util exposing (..)
-import Laborer exposing (..)
 import Building exposing (..)
-import Tech exposing (..)
+import Dict exposing (Dict)
+import Laborer exposing (..)
 import Resource exposing (..)
+import Tech exposing (..)
+import Util exposing (..)
+
+
 
 -- GameData
-
-
 --type alias GameData =
 --    { resources : List Resource.Resource
 --    , laborers : List Laborer.Laborer

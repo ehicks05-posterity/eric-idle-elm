@@ -1,4 +1,4 @@
-module Laborer exposing (..)
+module Laborer exposing (Laborer, builders, farmers, foresters, hunters, idlers, laborers, miners, thinkers)
 
 import Util exposing (..)
 

@@ -1,17 +1,21 @@
 module Main exposing (Model, Msg(..), init, main, subscriptions, update, view)
 
 import Browser
+import Building exposing (..)
 import Bulma exposing (..)
+import FormatNumber
+import FormatNumber.Locales exposing (usLocale)
 import Html exposing (..)
 import Html.Attributes exposing (class, colspan, disabled, src, style)
 import Html.Events exposing (..)
-import Random
-import Util exposing (..)
 import Laborer exposing (..)
-import Building exposing (..)
-import Tech exposing (..)
-import Resource exposing (..)
 import PreReq exposing (..)
+import Random
+import Resource exposing (..)
+import Tech exposing (..)
+import Util exposing (..)
+
+
 
 -- MAIN
 
@@ -60,7 +64,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         HarvestResource resource ->
-            ( {model | resources = updateResources model.resources (updateResourceAmount resource 1)}
+            ( { model | resources = updateResources model.resources (updateResourceAmount resource 1) }
             , Cmd.none
             )
 
@@ -69,8 +73,8 @@ update msg model =
             , Cmd.none
             )
 
-        SellBuilding string ->
-            ( model
+        SellBuilding building ->
+            ( sellBuilding model building
             , Cmd.none
             )
 
@@ -78,69 +82,78 @@ update msg model =
 buyBuilding : Model -> Building -> Model
 buyBuilding model building =
     let
-        costs = building.cost
+        multipliedCosts =
+            getMultipliedCosts building.cost building.amount
     in
-        if canAfford costs model.resources then
-            {model | resources = updateResourcesMultiple model building costs
-            , buildings = updateBuildings model.buildings (updateBuildingAmount building 1)}
-        else
-            model
+    if canAfford multipliedCosts model.resources then
+        { model
+            | resources = updateResourcesMultiple model building multipliedCosts
+            , buildings = updateBuildings model.buildings (updateBuildingAmount building 1)
+        }
+
+    else
+        model
+
+
+sellBuilding : Model -> Building -> Model
+sellBuilding model building =
+    let
+        multipliedCosts =
+            getMultipliedCosts building.cost (building.amount - 1)
+
+        negatedCosts =
+            List.map (\rc -> { rc | amount = negate rc.amount }) multipliedCosts
+    in
+    if building.amount > 0 then
+        { model
+            | resources = updateResourcesMultiple model building negatedCosts
+            , buildings = updateBuildings model.buildings (updateBuildingAmount building -1)
+        }
+
+    else
+        model
+
 
 updateResourcesMultiple : Model -> Building -> List ResourceCost -> List Resource
 updateResourcesMultiple model building costs =
-    let
-        multipliedCosts = getMultipliedCosts costs building.amount
-    in
-        List.map (updateResourceAmountFromCosts multipliedCosts) model.resources
+    List.map (updateResourceAmountFromCosts costs) model.resources
+
 
 updateResourceAmountFromCosts : List ResourceCost -> Resource -> Resource
 updateResourceAmountFromCosts costs resource =
     let
-        resourceCost = getResourceCostByResource costs resource.name
+        resourceCost =
+            getResourceCostByResource costs resource.name
     in
-        {resource | amount = resource.amount - resourceCost.amount}
+    { resource | amount = resource.amount - resourceCost.amount }
+
 
 updateResourceAmount : Resource -> Float -> Resource
 updateResourceAmount resource amount =
-    {resource | amount = resource.amount + amount}
+    { resource | amount = resource.amount + amount }
+
 
 updateResources : List Resource -> Resource -> List Resource
 updateResources resources updatedResource =
     let
-        resourcesMinusUpdatedResource = List.filter (\r -> r.name /= updatedResource.name) resources
+        resourcesMinusUpdatedResource =
+            List.filter (\r -> r.name /= updatedResource.name) resources
     in
-        updatedResource :: resourcesMinusUpdatedResource
+    updatedResource :: resourcesMinusUpdatedResource
 
 
 updateBuildingAmount : Building -> Float -> Building
 updateBuildingAmount building amount =
-    {building | amount = building.amount + amount}
+    { building | amount = building.amount + amount }
+
 
 updateBuildings : List Building -> Building -> List Building
 updateBuildings buildings updatedBuilding =
     let
-        buildingsMinusUpdatedBuilding = List.filter (\r -> r.name /= updatedBuilding.name) buildings
+        buildingsMinusUpdatedBuilding =
+            List.filter (\r -> r.name /= updatedBuilding.name) buildings
     in
-        updatedBuilding :: buildingsMinusUpdatedBuilding
-
-
---harvestResourceByName : List Resource -> String -> List Resource
---harvestResource resources resourceName =
---    let
---        (matchingResources, resourcesMinusMatchingResource) = List.partition (\r -> r.name == resourceName) resources
---
---        maybeResource = List.head matchingResources
---
-----        updatedResource = {maybeResource | amount = maybeResource.amount + 1}
---    in
---        case maybeResource of
---            Just resource ->
---                {resource | amount = resource.amount + 1} :: resourcesMinusMatchingResource
---            Nothing ->
---                resources
-
-
--- SUBSCRIPTIONS
+    updatedBuilding :: buildingsMinusUpdatedBuilding
 
 
 subscriptions : Model -> Sub Msg
@@ -179,7 +192,8 @@ resourceHeader =
             [ th [ colspan 100, style "text-align" "center" ] [ text "Resources" ]
             ]
         , tr []
-            [ th [] [ text "name" ]
+            [ th [] [ text "" ]
+            , th [] [ text "name" ]
             , th [ style "text-align" "right" ] [ text "amount" ]
             , th [ style "text-align" "center" ] [ text "harvest" ]
             ]
@@ -194,9 +208,38 @@ resourceRows model =
 resourceRow : Resource -> Html Msg
 resourceRow resource =
     tr []
-        [ td [] [ text resource.name ]
-        , td [ style "text-align" "right" ] [ text (String.fromFloat resource.amount) ]
+        [ td [] [ icon resource.image ]
+        , td [] [ text resource.name ]
+        , td [ style "text-align" "right" ] [ text (FormatNumber.format myLocale resource.amount) ]
         , td [ style "text-align" "center" ] [ button [ class "button", onClick (HarvestResource resource) ] [ text "Harvest" ] ]
+        ]
+
+
+icon : String -> Html msg
+icon iconSrc =
+    img [ class "image is-32x32", src ("../ico/" ++ iconSrc) ] []
+
+
+myLocale =
+    { usLocale
+        | decimals = 3
+    }
+
+
+resourceCostsDisplay : Model -> List ResourceCost -> List (Html msg)
+resourceCostsDisplay model costs =
+    List.map (resourceCostDisplay model) costs
+
+
+resourceCostDisplay : Model -> ResourceCost -> Html msg
+resourceCostDisplay model cost =
+    let
+        resource =
+            Resource.getByName cost.resource model.resources
+    in
+    div [ class "tags has-addons" ]
+        [ span [ class "tag is-light", style "padding" "0px" ] [ img [ style "border-radius" "4px 0 0 4px", class "image is-32x32", src ("../ico/" ++ resource.image) ] [] ]
+        , span [ class "tag is-medium is-light" ] [ text (FormatNumber.format myLocale cost.amount) ]
         ]
 
 
@@ -214,6 +257,7 @@ buildingHeader =
             ]
         , tr []
             [ th [] [ text "name" ]
+            , th [ style "text-align" "center" ] [ text "Price" ]
             , th [ style "text-align" "right" ] [ text "amount" ]
             , th [ style "text-align" "center" ] [ text "Buy" ]
             , th [ style "text-align" "center" ] [ text "Sell" ]
@@ -230,14 +274,17 @@ buildingRow : Model -> Building -> Html Msg
 buildingRow model building =
     tr []
         [ td [] [ text building.name ]
+        , td [ style "text-align" "center" ] (resourceCostsDisplay model (getMultipliedCosts building.cost building.amount))
         , td [ style "text-align" "right" ] [ text (String.fromFloat building.amount) ]
         , td [ style "text-align" "center" ] [ button [ disabled (not (canAfford (getMultipliedCosts building.cost building.amount) model.resources)), class "button", onClick (BuyBuilding building) ] [ text "Buy" ] ]
         , td [ style "text-align" "center" ] [ button [ disabled (building.amount <= 0), class "button", onClick (SellBuilding building) ] [ text "Sell" ] ]
         ]
 
+
 getMultipliedCosts : List ResourceCost -> Float -> List ResourceCost
 getMultipliedCosts costs n =
-    List.map (\c -> {c | amount = c.amount * 1.04 ^ n}) costs
+    List.map (\c -> { c | amount = c.amount * 1.04 ^ n }) costs
+
 
 canAfford : List ResourceCost -> List Resource -> Bool
 canAfford costs resources =

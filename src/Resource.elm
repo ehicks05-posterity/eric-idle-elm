@@ -1,6 +1,7 @@
-module Resource exposing (..)
+module Resource exposing (Resource, defaultResource, food, getByName, leather, lumber, research, resources, stone, villagers)
 
 import Util exposing (..)
+
 
 resources =
     [ food
@@ -10,6 +11,7 @@ resources =
     , stone
     , leather
     ]
+
 
 type alias Resource =
     { name : String
@@ -22,8 +24,10 @@ type alias Resource =
     , amount : Float
     }
 
+
 defaultResource =
     Resource "default" 0 "default.png" "noPreReq" Shown 0
+
 
 food =
     Resource "food" 40 "wheat.png" "noPreReq" Shown 0
@@ -34,7 +38,7 @@ villagers =
 
 
 lumber =
-    Resource "wood" 24 "wood-pile" "unlockWoodConstruction" Hidden 0
+    Resource "lumber" 24 "wood-pile.png" "unlockWoodConstruction" Hidden 0
 
 
 research =
@@ -48,10 +52,12 @@ stone =
 leather =
     Resource "leather" 20 "animal-hide.png" "unlockHunting" Hidden 0
 
+
 getByName : String -> List Resource -> Resource
 getByName name list =
     case List.head (List.filter (\r -> r.name == name) list) of
         Just r ->
             r
+
         Nothing ->
             defaultResource

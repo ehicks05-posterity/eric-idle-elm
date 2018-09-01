@@ -1,8 +1,8 @@
-module PreReq exposing (..)
+module PreReq exposing (PreReq, noPreReq, preReqs, unlockBuilders, unlockFarming, unlockHunting, unlockHuts, unlockLevelOneTech, unlockLibraries, unlockSchools, unlockStoneConstruction, unlockVillagers, unlockWheel, unlockWoodConstruction, updatePreReq, updatePreReqs)
 
-import Util exposing (..)
 import Resource exposing (..)
 import Tech exposing (..)
+import Util exposing (..)
 
 
 preReqs =

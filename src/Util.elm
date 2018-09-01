@@ -1,4 +1,4 @@
-module Util exposing (..)
+module Util exposing (DisplayStatus(..), LockStatus(..), ResourceCost, ResourceEffect(..), ResourceModifierType(..), getResourceCostByResource)
 
 
 type DisplayStatus
@@ -16,13 +16,16 @@ type alias ResourceCost =
     , amount : Float
     }
 
+
 getResourceCostByResource : List ResourceCost -> String -> ResourceCost
 getResourceCostByResource list resourceName =
     case List.head (List.filter (\rc -> rc.resource == resourceName) list) of
         Just rc ->
             rc
+
         Nothing ->
             ResourceCost "default" 0
+
 
 type ResourceModifierType
     = Additive

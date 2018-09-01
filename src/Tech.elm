@@ -1,6 +1,7 @@
-module Tech exposing (..)
+module Tech exposing (Tech, farming, stoneConstruction, techs, wheel, woodConstruction)
 
 import Util exposing (..)
+
 
 techs =
     [ farming
@@ -8,6 +9,7 @@ techs =
     , stoneConstruction
     , wheel
     ]
+
 
 type alias Tech =
     { name : String
