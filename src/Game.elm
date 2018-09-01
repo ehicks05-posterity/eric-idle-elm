@@ -1,4 +1,4 @@
-module Game exposing (GameData, getGameData)
+module Game exposing (..)
 
 import Dict exposing (Dict)
 import Util exposing (..)

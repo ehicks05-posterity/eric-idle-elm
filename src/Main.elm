@@ -51,21 +51,21 @@ init _ =
 
 
 type Msg
-    = HarvestResource String
-    | BuyBuilding String
-    | SellBuilding String
+    = HarvestResource Resource
+    | BuyBuilding Building
+    | SellBuilding Building
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        HarvestResource resourceName ->
-            ( {model | resources = harvestResource model.resources resourceName}
+        HarvestResource resource ->
+            ( {model | resources = updateResources model.resources (updateResourceAmount resource 1)}
             , Cmd.none
             )
 
-        BuyBuilding string ->
-            ( model
+        BuyBuilding building ->
+            ( buyBuilding model building
             , Cmd.none
             )
 
@@ -74,32 +74,70 @@ update msg model =
             , Cmd.none
             )
 
-getByName : List a -> String -> a
-getByName list name =
-    case list of
-        {}
-        result =
 
-buyBuilding : Model -> String -> Model
-buyBuilding model buildingName =
+buyBuilding : Model -> Building -> Model
+buyBuilding model building =
     let
-        building =
-
-
-harvestResource : List Resource -> String -> List Resource
-harvestResource resources resourceName =
-    let
-        (matchingResources, resourcesMinusMatchingResource) = List.partition (\r -> r.name == resourceName) resources
-
-        maybeResource = List.head matchingResources
-
---        updatedResource = {maybeResource | amount = maybeResource.amount + 1}
+        costs = building.cost
     in
-        case maybeResource of
-            Just resource ->
-                {resource | amount = resource.amount + 1} :: resourcesMinusMatchingResource
-            Nothing ->
-                resources
+        if canAfford costs model.resources then
+            {model | resources = updateResourcesMultiple model building costs
+            , buildings = updateBuildings model.buildings (updateBuildingAmount building 1)}
+        else
+            model
+
+updateResourcesMultiple : Model -> Building -> List ResourceCost -> List Resource
+updateResourcesMultiple model building costs =
+    let
+        multipliedCosts = getMultipliedCosts costs building.amount
+    in
+        List.map (updateResourceAmountFromCosts multipliedCosts) model.resources
+
+updateResourceAmountFromCosts : List ResourceCost -> Resource -> Resource
+updateResourceAmountFromCosts costs resource =
+    let
+        resourceCost = getResourceCostByResource costs resource.name
+    in
+        {resource | amount = resource.amount - resourceCost.amount}
+
+updateResourceAmount : Resource -> Float -> Resource
+updateResourceAmount resource amount =
+    {resource | amount = resource.amount + amount}
+
+updateResources : List Resource -> Resource -> List Resource
+updateResources resources updatedResource =
+    let
+        resourcesMinusUpdatedResource = List.filter (\r -> r.name /= updatedResource.name) resources
+    in
+        updatedResource :: resourcesMinusUpdatedResource
+
+
+updateBuildingAmount : Building -> Float -> Building
+updateBuildingAmount building amount =
+    {building | amount = building.amount + amount}
+
+updateBuildings : List Building -> Building -> List Building
+updateBuildings buildings updatedBuilding =
+    let
+        buildingsMinusUpdatedBuilding = List.filter (\r -> r.name /= updatedBuilding.name) buildings
+    in
+        updatedBuilding :: buildingsMinusUpdatedBuilding
+
+
+--harvestResourceByName : List Resource -> String -> List Resource
+--harvestResource resources resourceName =
+--    let
+--        (matchingResources, resourcesMinusMatchingResource) = List.partition (\r -> r.name == resourceName) resources
+--
+--        maybeResource = List.head matchingResources
+--
+----        updatedResource = {maybeResource | amount = maybeResource.amount + 1}
+--    in
+--        case maybeResource of
+--            Just resource ->
+--                {resource | amount = resource.amount + 1} :: resourcesMinusMatchingResource
+--            Nothing ->
+--                resources
 
 
 -- SUBSCRIPTIONS
@@ -158,7 +196,7 @@ resourceRow resource =
     tr []
         [ td [] [ text resource.name ]
         , td [ style "text-align" "right" ] [ text (String.fromFloat resource.amount) ]
-        , td [ style "text-align" "center" ] [ button [ class "button", onClick (HarvestResource resource.name) ] [ text "Harvest" ] ]
+        , td [ style "text-align" "center" ] [ button [ class "button", onClick (HarvestResource resource) ] [ text "Harvest" ] ]
         ]
 
 
@@ -193,10 +231,13 @@ buildingRow model building =
     tr []
         [ td [] [ text building.name ]
         , td [ style "text-align" "right" ] [ text (String.fromFloat building.amount) ]
-        , td [ style "text-align" "center" ] [ button [ disabled (not (canAfford building.cost model.resources)), class "button", onClick (BuyBuilding building.name) ] [ text "Buy" ] ]
-        , td [ style "text-align" "center" ] [ button [ disabled (building.amount <= 0), class "button", onClick (SellBuilding building.name) ] [ text "Sell" ] ]
+        , td [ style "text-align" "center" ] [ button [ disabled (not (canAfford (getMultipliedCosts building.cost building.amount) model.resources)), class "button", onClick (BuyBuilding building) ] [ text "Buy" ] ]
+        , td [ style "text-align" "center" ] [ button [ disabled (building.amount <= 0), class "button", onClick (SellBuilding building) ] [ text "Sell" ] ]
         ]
 
+getMultipliedCosts : List ResourceCost -> Float -> List ResourceCost
+getMultipliedCosts costs n =
+    List.map (\c -> {c | amount = c.amount * 1.04 ^ n}) costs
 
 canAfford : List ResourceCost -> List Resource -> Bool
 canAfford costs resources =
