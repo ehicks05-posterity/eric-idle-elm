@@ -1,6 +1,6 @@
 module Main exposing (Model, Msg(..), init, main, subscriptions, update, view)
 
-import Browser
+import Browser exposing (Document)
 import Building exposing (..)
 import Bulma exposing (..)
 import FormatNumber
@@ -21,7 +21,7 @@ import Util exposing (..)
 
 
 main =
-    Browser.element
+    Browser.document
         { init = init
         , update = update
         , subscriptions = subscriptions
@@ -165,23 +165,29 @@ subscriptions model =
 -- VIEW
 
 
-view : Model -> Html Msg
+view : Model -> Document Msg
 view model =
-    div []
-        [ stylesheet
-        , hero "Eric Idle"
-        , section [ class "section" ]
-            [ div [ class "container" ]
-                [ resourcesTable model
-                , buildingsTable model
+    { title = "EricIdle"
+    , body =
+        [ div []
+            [ stylesheet
+            , hero "Eric Idle"
+            , section [ class "section" ]
+                [ div [ class "container" ]
+                    [ div [ class "columns is-centered is-multiline" ]
+                        [ div [ class "column is-narrow" ] [ resourcesTable model ]
+                        , div [ class "column is-narrow" ] [ buildingsTable model ]
+                        ]
+                    ]
                 ]
             ]
         ]
+    }
 
 
 resourcesTable : Model -> Html Msg
 resourcesTable model =
-    table [ class "table" ]
+    table [ class "table is-narrow" ]
         (resourceRows model)
 
 
@@ -245,7 +251,7 @@ resourceCostDisplay model cost =
 
 buildingsTable : Model -> Html Msg
 buildingsTable model =
-    table [ class "table" ]
+    table [ class "table is-narrow" ]
         (buildingRows model)
 
 
@@ -259,8 +265,7 @@ buildingHeader =
             [ th [] [ text "name" ]
             , th [ style "text-align" "center" ] [ text "Price" ]
             , th [ style "text-align" "right" ] [ text "amount" ]
-            , th [ style "text-align" "center" ] [ text "Buy" ]
-            , th [ style "text-align" "center" ] [ text "Sell" ]
+            , th [ style "text-align" "center" ] [ text "" ]
             ]
         ]
 
@@ -276,8 +281,9 @@ buildingRow model building =
         [ td [] [ text building.name ]
         , td [ style "text-align" "center" ] (resourceCostsDisplay model (getMultipliedCosts building.cost building.amount))
         , td [ style "text-align" "right" ] [ text (String.fromFloat building.amount) ]
-        , td [ style "text-align" "center" ] [ button [ disabled (not (canAfford (getMultipliedCosts building.cost building.amount) model.resources)), class "button", onClick (BuyBuilding building) ] [ text "Buy" ] ]
-        , td [ style "text-align" "center" ] [ button [ disabled (building.amount <= 0), class "button", onClick (SellBuilding building) ] [ text "Sell" ] ]
+        , td [ style "text-align" "center" ] [ button [ disabled (not (canAfford (getMultipliedCosts building.cost building.amount) model.resources)), class "button", onClick (BuyBuilding building) ] [ text "Buy" ]
+            , button [ disabled (building.amount <= 0), class "button", onClick (SellBuilding building) ] [ text "Sell" ]
+            ]
         ]
 
 
