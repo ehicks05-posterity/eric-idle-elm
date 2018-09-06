@@ -1,9 +1,9 @@
-module Building exposing (Building, buildings, defaultBuilding, farms, getByName, huts, libraries, lumberMills, quarries, schools, storerooms)
+module Building exposing (..)
 
 import Util exposing (..)
 
 
-buildings =
+initialBuildings =
     [ huts
     , farms
     , lumberMills
@@ -27,6 +27,14 @@ type alias Building =
     }
 
 
+getAggregateResourceEffects : List Building -> List ResourceEffect
+getAggregateResourceEffects buildings =
+    flatten (List.map getAggregateResourceEffectsForBuilding buildings)
+
+getAggregateResourceEffectsForBuilding : Building -> List ResourceEffect
+getAggregateResourceEffectsForBuilding building =
+    List.map (\effect -> {effect | amount = effect.amount * building.amount}) building.effects
+
 getByName : String -> List Building -> Building
 getByName name list =
     case List.head (List.filter (\r -> r.name == name) list) of
@@ -38,19 +46,19 @@ getByName name list =
 
 
 defaultBuilding =
-    Building "default" "default.png" "default" [ ResourceCost "food" 1 ] [ ResourceLimitMod "villagers" Additive 2 ] 0 Hidden
+    Building "default" "default.png" "default" [ ResourceCost "food" 1 ] [ ResourceEffect ResourceLimit "villagers" Additive 2 ] 0 Hidden
 
 
 huts =
-    Building "huts" "tipi.png" "unlockHuts" [ ResourceCost "food" 1 ] [ ResourceLimitMod "villagers" Additive 2 ] 0 Hidden
+    Building "huts" "tipi.png" "unlockHuts" [ ResourceCost "food" 1 ] [ ResourceEffect ResourceLimit "villagers" Additive 2 ] 0 Hidden
 
 
 farms =
-    Building "farms" "barn.png" "unlockFarming" [ ResourceCost "lumber" 1 ] [ ResourceProductionMod "food" Multiplicative 0.05 ] 0 Hidden
+    Building "farms" "barn.png" "unlockFarming" [ ResourceCost "lumber" 1 ] [ ResourceEffect ResourceProduction "food" Multiplicative 0.05 ] 0 Hidden
 
 
 lumberMills =
-    Building "lumberMills" "circular-saw.png" "unlockWoodConstruction" [ ResourceCost "lumber" 2 ] [ ResourceProductionMod "lumber" Multiplicative 0.05 ] 0 Hidden
+    Building "lumberMills" "circular-saw.png" "unlockWoodConstruction" [ ResourceCost "lumber" 2 ] [ ResourceEffect ResourceProduction "lumber" Multiplicative 0.05 ] 0 Hidden
 
 
 storerooms =
@@ -58,18 +66,18 @@ storerooms =
         "block-house.png"
         "unlockStoneConstruction"
         [ ResourceCost "lumber" 5 ]
-        [ ResourceLimitMod "food" Additive 5, ResourceLimitMod "lumber" Additive 5, ResourceLimitMod "stone" Additive 5 ]
+        [ ResourceEffect ResourceLimit "food" Additive 5, ResourceEffect ResourceLimit "lumber" Additive 5, ResourceEffect ResourceLimit "stone" Additive 5 ]
         0
         Hidden
 
 
 quarries =
-    Building "quarries" "gold-mine.png" "unlockStoneConstruction" [ ResourceCost "lumber" 2 ] [ ResourceProductionMod "stone" Multiplicative 0.06 ] 0 Hidden
+    Building "quarries" "gold-mine.png" "unlockStoneConstruction" [ ResourceCost "lumber" 2 ] [ ResourceEffect ResourceProduction "stone" Multiplicative 0.06 ] 0 Hidden
 
 
 schools =
-    Building "schools" "graduate-cap.png" "unlockSchools" [ ResourceCost "lumber" 3 ] [ ResourceProductionMod "research" Multiplicative 0.06 ] 0 Hidden
+    Building "schools" "graduate-cap.png" "unlockSchools" [ ResourceCost "lumber" 3 ] [ ResourceEffect ResourceProduction "research" Multiplicative 0.06 ] 0 Hidden
 
 
 libraries =
-    Building "libraries" "book-cover.png" "unlockLibraries" [ ResourceCost "lumber" 4 ] [ ResourceLimitMod "research" Additive 5 ] 0 Hidden
+    Building "libraries" "book-cover.png" "unlockLibraries" [ ResourceCost "lumber" 4 ] [ ResourceEffect ResourceLimit "research" Additive 5 ] 0 Hidden

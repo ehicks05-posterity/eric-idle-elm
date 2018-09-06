@@ -45,7 +45,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model Resource.resources Laborer.laborers Building.buildings Tech.techs PreReq.preReqs True
+    ( Model Resource.resources Laborer.initialLaborers Building.initialBuildings Tech.techs PreReq.preReqs True
     , Cmd.none
     )
 
@@ -58,13 +58,15 @@ type Msg
     = HarvestResource Resource
     | BuyBuilding Building
     | SellBuilding Building
+    | AddLaborer Laborer
+    | RemoveLaborer Laborer
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         HarvestResource resource ->
-            ( { model | resources = updateResources model.resources (updateResourceAmount resource 1) }
+            ( { model | resources = updateResources model.resources (updateResourceAmount model resource 1) }
             , Cmd.none
             )
 
@@ -78,6 +80,69 @@ update msg model =
             , Cmd.none
             )
 
+        AddLaborer laborer ->
+            ( addLaborer model laborer
+            , Cmd.none
+            )
+
+        RemoveLaborer laborer ->
+            ( removeLaborer model laborer
+            , Cmd.none
+            )
+
+
+getAllResourceEffects : Model -> List ResourceEffect
+getAllResourceEffects model =
+    Laborer.getAggregateResourceEffects model.laborers ++ Building.getAggregateResourceEffects model.buildings
+
+
+addLaborer : Model -> Laborer -> Model
+addLaborer model laborer =
+    let
+        multipliedCosts =
+            [ ResourceCost "villager" 1 ]
+    in
+    if canAffordResourceCosts multipliedCosts model.resources then
+        { model
+            | resources = updateResourcesMultiple model multipliedCosts
+            , laborers = updateLaborers model.laborers (updateLaborerAmount laborer 1)
+        }
+
+    else
+        model
+
+
+updateLaborerAmount : Laborer -> Float -> Laborer
+updateLaborerAmount laborer amount =
+    { laborer | amount = laborer.amount + amount }
+
+
+updateLaborers : List Laborer -> Laborer -> List Laborer
+updateLaborers laborers updatedLaborer =
+    let
+        laborersMinusUpdatedLaborer =
+            List.filter (\r -> r.name /= updatedLaborer.name) laborers
+    in
+    updatedLaborer :: laborersMinusUpdatedLaborer
+
+
+removeLaborer : Model -> Laborer -> Model
+removeLaborer model laborer =
+    let
+        multipliedCosts =
+            [ ResourceCost "villager" 1 ]
+
+        negatedCosts =
+            List.map (\rc -> { rc | amount = negate rc.amount }) multipliedCosts
+    in
+    if laborer.amount > 0 then
+        { model
+            | resources = updateResourcesMultiple model negatedCosts
+            , laborers = updateLaborers model.laborers (updateLaborerAmount laborer -1)
+        }
+
+    else
+        model
 
 buyBuilding : Model -> Building -> Model
 buyBuilding model building =
@@ -85,9 +150,9 @@ buyBuilding model building =
         multipliedCosts =
             getMultipliedCosts building.cost building.amount
     in
-    if canAfford multipliedCosts model.resources then
+    if canAffordResourceCosts multipliedCosts model.resources then
         { model
-            | resources = updateResourcesMultiple model building multipliedCosts
+            | resources = updateResourcesMultiple model multipliedCosts
             , buildings = updateBuildings model.buildings (updateBuildingAmount building 1)
         }
 
@@ -106,7 +171,7 @@ sellBuilding model building =
     in
     if building.amount > 0 then
         { model
-            | resources = updateResourcesMultiple model building negatedCosts
+            | resources = updateResourcesMultiple model negatedCosts
             , buildings = updateBuildings model.buildings (updateBuildingAmount building -1)
         }
 
@@ -114,23 +179,54 @@ sellBuilding model building =
         model
 
 
-updateResourcesMultiple : Model -> Building -> List ResourceCost -> List Resource
-updateResourcesMultiple model building costs =
-    List.map (updateResourceAmountFromCosts costs) model.resources
+updateResourcesMultiple : Model -> List ResourceCost -> List Resource
+updateResourcesMultiple model costs =
+    List.map (updateResourceAmountFromCosts model costs) model.resources
 
 
-updateResourceAmountFromCosts : List ResourceCost -> Resource -> Resource
-updateResourceAmountFromCosts costs resource =
+updateResourceAmountFromCosts : Model -> List ResourceCost -> Resource -> Resource
+updateResourceAmountFromCosts model costs resource =
     let
         resourceCost =
             getResourceCostByResource costs resource.name
     in
-    { resource | amount = resource.amount - resourceCost.amount }
+    updateResourceAmount model resource (negate resourceCost.amount)
 
 
-updateResourceAmount : Resource -> Float -> Resource
-updateResourceAmount resource amount =
-    { resource | amount = resource.amount + amount }
+getResourceLimit : Model -> Resource -> Float
+getResourceLimit model resource =
+    let
+        mods = List.filter (\re -> re.resourceName == resource.name) (getAllResourceEffects model)
+        limitMods = List.filter (\re -> re.subType == ResourceLimit) mods
+        (additiveMods, multiplicativeMods) = List.partition (\re -> re.aggregationType == Additive) limitMods
+        additiveTotal = List.foldr (+) 0 (List.map (\re -> re.amount) additiveMods)
+        multiplicativeTotal = List.foldr (+) 0 (List.map (\re -> re.amount) multiplicativeMods)
+    in
+        (resource.baseLimit + additiveTotal) * (1 + multiplicativeTotal)
+
+getResourceProductionRate : Model -> Resource -> Float
+getResourceProductionRate model resource =
+    let
+        mods = List.filter (\re -> re.resourceName == resource.name) (getAllResourceEffects model)
+        productionMods = List.filter (\re -> re.subType == ResourceProduction) mods
+        (additiveMods, multiplicativeMods) = List.partition (\re -> re.aggregationType == Additive) productionMods
+        additiveTotal = List.foldr (+) 0 (List.map (\re -> re.amount) additiveMods)
+        multiplicativeTotal = List.foldr (+) 0 (List.map (\re -> re.amount) multiplicativeMods)
+    in
+        additiveTotal * (1 + multiplicativeTotal)
+
+
+{-
+   enforce resource caps
+-}
+
+
+updateResourceAmount : Model -> Resource -> Float -> Resource
+updateResourceAmount model resource amount =
+    let
+        newAmount = min (resource.amount + amount) (getResourceLimit model resource)
+    in
+    { resource | amount = newAmount }
 
 
 updateResources : List Resource -> Resource -> List Resource
@@ -177,6 +273,7 @@ view model =
                     [ div [ class "columns is-centered is-multiline" ]
                         [ div [ class "column is-narrow" ] [ resourcesTable model ]
                         , div [ class "column is-narrow" ] [ buildingsTable model ]
+                        , div [ class "column is-narrow" ] [ laborersTable model ]
                         ]
                     ]
                 ]
@@ -201,6 +298,7 @@ resourceHeader =
             [ th [] [ text "" ]
             , th [] [ text "name" ]
             , th [ style "text-align" "right" ] [ text "amount" ]
+            , th [ style "text-align" "right" ] [ text "rate" ]
             , th [ style "text-align" "center" ] [ text "harvest" ]
             ]
         ]
@@ -208,15 +306,16 @@ resourceHeader =
 
 resourceRows : Model -> List (Html Msg)
 resourceRows model =
-    resourceHeader :: List.map resourceRow (List.filter (\r -> r.status == Shown || model.showAll) model.resources)
+    resourceHeader :: List.map (resourceRow model) (List.filter (\r -> r.status == Shown || model.showAll) model.resources)
 
 
-resourceRow : Resource -> Html Msg
-resourceRow resource =
+resourceRow : Model -> Resource -> Html Msg
+resourceRow model resource =
     tr []
         [ td [] [ icon resource.image ]
         , td [] [ text resource.name ]
-        , td [ style "text-align" "right" ] [ text (FormatNumber.format myLocale resource.amount) ]
+        , td [ style "text-align" "right" ] [ text (myFormat resource.amount ++ " / " ++ myFormat (getResourceLimit model resource)) ]
+        , td [ style "text-align" "right" ] [ text (myFormat (getResourceProductionRate model resource)) ]
         , td [ style "text-align" "center" ] [ button [ class "button", onClick (HarvestResource resource) ] [ text "Harvest" ] ]
         ]
 
@@ -226,10 +325,8 @@ icon iconSrc =
     img [ class "image is-32x32", src ("../ico/" ++ iconSrc) ] []
 
 
-myLocale =
-    { usLocale
-        | decimals = 3
-    }
+myFormat n =
+    FormatNumber.format usLocale n
 
 
 resourceCostsDisplay : Model -> List ResourceCost -> List (Html msg)
@@ -245,7 +342,7 @@ resourceCostDisplay model cost =
     in
     div [ class "tags has-addons" ]
         [ span [ class "tag is-light", style "padding" "0px" ] [ img [ style "border-radius" "4px 0 0 4px", class "image is-32x32", src ("../ico/" ++ resource.image) ] [] ]
-        , span [ class "tag is-medium is-light" ] [ text (FormatNumber.format myLocale cost.amount) ]
+        , span [ class "tag is-medium is-light" ] [ text (myFormat cost.amount) ]
         ]
 
 
@@ -262,7 +359,8 @@ buildingHeader =
             [ th [ colspan 100, style "text-align" "center" ] [ text "Buildings" ]
             ]
         , tr []
-            [ th [] [ text "name" ]
+            [ th [] [ text "" ]
+            , th [] [ text "name" ]
             , th [ style "text-align" "center" ] [ text "Price" ]
             , th [ style "text-align" "right" ] [ text "amount" ]
             , th [ style "text-align" "center" ] [ text "" ]
@@ -278,10 +376,12 @@ buildingRows model =
 buildingRow : Model -> Building -> Html Msg
 buildingRow model building =
     tr []
-        [ td [] [ text building.name ]
+        [ td [] [ icon building.image ]
+        , td [] [ text building.name ]
         , td [ style "text-align" "center" ] (resourceCostsDisplay model (getMultipliedCosts building.cost building.amount))
         , td [ style "text-align" "right" ] [ text (String.fromFloat building.amount) ]
-        , td [ style "text-align" "center" ] [ button [ disabled (not (canAfford (getMultipliedCosts building.cost building.amount) model.resources)), class "button", onClick (BuyBuilding building) ] [ text "Buy" ]
+        , td [ style "text-align" "center" ]
+            [ button [ disabled (not (canAffordResourceCosts (getMultipliedCosts building.cost building.amount) model.resources)), class "button", onClick (BuyBuilding building) ] [ text "Buy" ]
             , button [ disabled (building.amount <= 0), class "button", onClick (SellBuilding building) ] [ text "Sell" ]
             ]
         ]
@@ -289,32 +389,61 @@ buildingRow model building =
 
 getMultipliedCosts : List ResourceCost -> Float -> List ResourceCost
 getMultipliedCosts costs n =
-    List.map (\c -> { c | amount = c.amount * 1.04 ^ n }) costs
+    List.map (\c -> { c | amount = c.amount * (getQuantityMultiplier n) }) costs
 
 
-canAfford : List ResourceCost -> List Resource -> Bool
-canAfford costs resources =
-    List.all (checkResourceCost resources) costs
+getQuantityMultiplier : Float -> Float
+getQuantityMultiplier quantity =
+    1.04 ^ quantity
+
+canAffordResourceCosts : List ResourceCost -> List Resource -> Bool
+canAffordResourceCosts costs resources =
+    List.all (canAffordResourceCost resources) costs
 
 
-checkResourceCost : List Resource -> ResourceCost -> Bool
-checkResourceCost resources resourceCost =
+canAffordResourceCost : List Resource -> ResourceCost -> Bool
+canAffordResourceCost resources resourceCost =
     let
         resourceAmount =
-            getResourceAmountByName resourceCost.resource resources
+            (Resource.getByName resourceCost.resource resources).amount
     in
     resourceAmount >= resourceCost.amount
 
 
-getResourceAmountByName : String -> List Resource -> Float
-getResourceAmountByName name resources =
-    let
-        resource =
-            List.head (List.filter (\r -> r.name == name) resources)
-    in
-    case resource of
-        Just r ->
-            r.amount
+laborersTable : Model -> Html Msg
+laborersTable model =
+    table [ class "table is-narrow" ]
+        (laborerRows model)
 
-        Nothing ->
-            0
+
+laborerHeader : Html msg
+laborerHeader =
+    thead [ class "thead" ]
+        [ tr []
+            [ th [ colspan 100, style "text-align" "center" ] [ text "Laborers" ]
+            ]
+        , tr []
+            [ th [] [ text "" ]
+            , th [] [ text "name" ]
+            , th [ style "text-align" "right" ] [ text "amount" ]
+            , th [ style "text-align" "center" ] [ text "" ]
+            ]
+        ]
+
+
+laborerRows : Model -> List (Html Msg)
+laborerRows model =
+    laborerHeader :: List.map (laborerRow model) (List.filter (\r -> r.status == Shown || model.showAll) model.laborers)
+
+
+laborerRow : Model -> Laborer -> Html Msg
+laborerRow model laborer =
+    tr []
+        [ td [] [ icon laborer.image ]
+        , td [] [ text laborer.name ]
+        , td [ style "text-align" "right" ] [ text (String.fromFloat laborer.amount) ]
+        , td [ style "text-align" "center" ]
+            [ button [ disabled (not (canAffordResourceCosts ([ ResourceCost "villager" 1 ]) model.resources)), class "button", onClick (AddLaborer laborer) ] [ text "Buy" ]
+            , button [ disabled (laborer.amount <= 0), class "button", onClick (RemoveLaborer laborer) ] [ text "Sell" ]
+            ]
+        ]

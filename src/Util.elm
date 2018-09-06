@@ -1,5 +1,24 @@
-module Util exposing (DisplayStatus(..), LockStatus(..), ResourceCost, ResourceEffect(..), ResourceModifierType(..), getResourceCostByResource)
+module Util exposing (..)
 
+import Debug
+
+flatten : List (List a) -> List a
+flatten list =
+    List.foldr (++) [] list
+
+
+getByName : String -> List { a | name : String } -> { a | name : String }
+getByName name list =
+    case List.head (List.filter (hasName name) list) of
+        Just item ->
+            item
+
+        Nothing ->
+            Debug.todo "TODO"
+
+hasName : String -> {a | name : String} -> Bool
+hasName desiredName {name} =
+    name == desiredName
 
 type DisplayStatus
     = Hidden
@@ -27,11 +46,18 @@ getResourceCostByResource list resourceName =
             ResourceCost "default" 0
 
 
-type ResourceModifierType
+type AggregationType
     = Additive
     | Multiplicative
 
+type SubType
+    = ResourceProduction
+    | ResourceLimit
 
-type ResourceEffect
-    = ResourceLimitMod String ResourceModifierType Float
-    | ResourceProductionMod String ResourceModifierType Float
+
+type alias ResourceEffect =
+    { subType : SubType
+    , resourceName : String
+    , aggregationType : AggregationType
+    , amount : Float
+    }

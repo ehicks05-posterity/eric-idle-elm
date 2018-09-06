@@ -1,9 +1,9 @@
-module Laborer exposing (Laborer, builders, farmers, foresters, hunters, idlers, laborers, miners, thinkers)
+module Laborer exposing (..)
 
 import Util exposing (..)
 
 
-laborers =
+initialLaborers =
     [ idlers
     , farmers
     , thinkers
@@ -22,32 +22,41 @@ type alias Laborer =
 
     -- mutable
     , amount : Float
+    , status : DisplayStatus
     }
 
 
+getAggregateResourceEffects : List Laborer -> List ResourceEffect
+getAggregateResourceEffects laborers =
+    flatten (List.map getAggregateResourceEffectsForLaborer laborers)
+
+getAggregateResourceEffectsForLaborer : Laborer -> List ResourceEffect
+getAggregateResourceEffectsForLaborer laborer =
+    List.map (\effect -> {effect | amount = effect.amount * laborer.amount}) laborer.effects
+
 idlers =
-    Laborer "idlers" "watch.png" "unlockVillagers" [] 0
+    Laborer "idlers" "watch.png" "unlockVillagers" [] 0 Hidden
 
 
 farmers =
-    Laborer "farmers" "farmer.png" "unlockVillagers" [ ResourceProductionMod "food" Additive 0.5 ] 0
+    Laborer "farmers" "farmer.png" "unlockVillagers" [ ResourceEffect ResourceProduction "food" Additive 0.5 ] 0 Hidden
 
 
 thinkers =
-    Laborer "thinkers" "think.png" "unlockVillagers" [ ResourceProductionMod "research" Additive 0.2 ] 0
+    Laborer "thinkers" "think.png" "unlockVillagers" [ ResourceEffect ResourceProduction "research" Additive 0.2 ] 0 Hidden
 
 
 foresters =
-    Laborer "foresters" "hand-saw.png" "unlockWoodConstruction" [ ResourceProductionMod "lumber" Additive 0.2 ] 0
+    Laborer "foresters" "hand-saw.png" "unlockWoodConstruction" [ ResourceEffect ResourceProduction "lumber" Additive 0.2 ] 0 Hidden
 
 
 hunters =
-    Laborer "hunters" "watch.png" "unlockHunting" [ ResourceProductionMod "food" Additive 0.2 ] 0
+    Laborer "hunters" "watch.png" "unlockHunting" [ ResourceEffect ResourceProduction "food" Additive 0.2 ] 0 Hidden
 
 
 miners =
-    Laborer "miners" "watch.png" "unlockStoneConstruction" [ ResourceProductionMod "stone" Additive 0.1 ] 0
+    Laborer "miners" "watch.png" "unlockStoneConstruction" [ ResourceEffect ResourceProduction "stone" Additive 0.1 ] 0 Hidden
 
 
 builders =
-    Laborer "builders" "watch.png" "unlockBuilders" [] 0
+    Laborer "builders" "watch.png" "unlockBuilders" [] 0 Hidden
