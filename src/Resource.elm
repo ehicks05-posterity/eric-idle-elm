@@ -18,6 +18,7 @@ type alias Resource =
     , baseLimit : Float
     , image : String
     , prereq : String
+    , index : Int
 
     -- mutable
     , status : DisplayStatus
@@ -26,31 +27,31 @@ type alias Resource =
 
 
 defaultResource =
-    Resource "default" 0 "default.png" "noPreReq" Shown 0
+    Resource "default" 0 "default.png" "noPreReq" 0 Shown 0
 
 
 food =
-    Resource "food" 40 "wheat.png" "noPreReq" Shown 0
+    Resource "food" 40 "wheat.png" "noPreReq" 1 Shown 0
 
 
 villagers =
-    Resource "villagers" 0 "backup.png" "unlockVillagers" Hidden 0
+    Resource "villagers" 0 "backup.png" "unlockVillagers" 2 Hidden 0
 
 
 lumber =
-    Resource "lumber" 24 "wood-pile.png" "unlockWoodConstruction" Hidden 0
+    Resource "lumber" 24 "wood-pile.png" "unlockWoodConstruction" 3 Hidden 0
 
 
 research =
-    Resource "research" 20 "coma.png" "unlockVillagers" Hidden 0
+    Resource "research" 20 "coma.png" "unlockVillagers" 4 Hidden 0
 
 
 stone =
-    Resource "stone" 10 "stone-pile.png" "unlockStoneConstruction" Hidden 0
+    Resource "stone" 10 "stone-pile.png" "unlockStoneConstruction" 5 Hidden 0
 
 
 leather =
-    Resource "leather" 20 "animal-hide.png" "unlockHunting" Hidden 0
+    Resource "leather" 20 "animal-hide.png" "unlockHunting" 6 Hidden 0
 
 
 getByName : String -> List Resource -> Resource

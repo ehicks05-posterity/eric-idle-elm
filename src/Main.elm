@@ -6,7 +6,8 @@ import Bulma exposing (..)
 import FormatNumber
 import FormatNumber.Locales exposing (usLocale)
 import Html exposing (..)
-import Html.Attributes exposing (class, colspan, disabled, src, style)
+import Html.Attributes exposing (alt, class, colspan, disabled, height, href, src, style, width)
+import Html.Attributes.Aria exposing (ariaExpanded, ariaHidden, ariaLabel, role)
 import Html.Events exposing (..)
 import Laborer exposing (..)
 import PreReq exposing (..)
@@ -40,12 +41,13 @@ type alias Model =
     , technologies : List Tech.Tech
     , prereqs : List PreReq.PreReq
     , showAll : Bool
+    , darkly : Bool
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model Resource.resources Laborer.initialLaborers Building.initialBuildings Tech.techs PreReq.preReqs True
+    ( Model Resource.resources Laborer.initialLaborers Building.initialBuildings Tech.techs PreReq.preReqs True False
     , Cmd.none
     )
 
@@ -55,16 +57,24 @@ init _ =
 
 
 type Msg
-    = HarvestResource Resource
+    = DoTick
+    | HarvestResource Resource
     | BuyBuilding Building
     | SellBuilding Building
     | AddLaborer Laborer
     | RemoveLaborer Laborer
+    | ToggleShowAll
+    | ToggleDarkly
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        DoTick ->
+            ( model
+            , Cmd.none
+            )
+
         HarvestResource resource ->
             ( { model | resources = updateResources model.resources (updateResourceAmount model resource 1) }
             , Cmd.none
@@ -90,6 +100,19 @@ update msg model =
             , Cmd.none
             )
 
+        ToggleShowAll ->
+            ( {model | showAll = not model.showAll}
+            , Cmd.none
+            )
+
+        ToggleDarkly ->
+            ( {model | darkly = not model.darkly}
+            , Cmd.none
+            )
+
+doTick : Model -> Model
+doTick model =
+    model
 
 getAllResourceEffects : Model -> List ResourceEffect
 getAllResourceEffects model =
@@ -99,14 +122,19 @@ getAllResourceEffects model =
 addLaborer : Model -> Laborer -> Model
 addLaborer model laborer =
     let
-        multipliedCosts =
-            [ ResourceCost "villager" 1 ]
+        newIdler = updateLaborerAmount (Util.getByName "idlers" model.laborers) -1
+        newLaborer = updateLaborerAmount laborer 1
+
+        laborerName = laborer.name
+        laborers = model.laborers
+--        newLaborers = {laborers | idlers = newIdler, laborerName = newLaborer}
+
+        newLaborers =
+               updateLaborers newIdler model.laborers
+            |> updateLaborers newLaborer
     in
-    if canAffordResourceCosts multipliedCosts model.resources then
-        { model
-            | resources = updateResourcesMultiple model multipliedCosts
-            , laborers = updateLaborers model.laborers (updateLaborerAmount laborer 1)
-        }
+    if haveAnIdler model.laborers then
+        { model | laborers = newLaborers }
 
     else
         model
@@ -117,29 +145,31 @@ updateLaborerAmount laborer amount =
     { laborer | amount = laborer.amount + amount }
 
 
-updateLaborers : List Laborer -> Laborer -> List Laborer
-updateLaborers laborers updatedLaborer =
+updateLaborers : Laborer -> List Laborer -> List Laborer
+updateLaborers updatedLaborer laborers =
     let
         laborersMinusUpdatedLaborer =
             List.filter (\r -> r.name /= updatedLaborer.name) laborers
     in
-    updatedLaborer :: laborersMinusUpdatedLaborer
+    List.sortBy .index (updatedLaborer :: laborersMinusUpdatedLaborer)
 
 
 removeLaborer : Model -> Laborer -> Model
 removeLaborer model laborer =
     let
-        multipliedCosts =
-            [ ResourceCost "villager" 1 ]
+        newIdler = updateLaborerAmount (Util.getByName "idlers" model.laborers) 1
+        newLaborer = updateLaborerAmount laborer -1
 
-        negatedCosts =
-            List.map (\rc -> { rc | amount = negate rc.amount }) multipliedCosts
+        laborerName = laborer.name
+        laborers = model.laborers
+--        newLaborers = {laborers | idlers = newIdler, laborerName = newLaborer}
+
+        newLaborers =
+               updateLaborers newIdler model.laborers
+            |> updateLaborers newLaborer
     in
     if laborer.amount > 0 then
-        { model
-            | resources = updateResourcesMultiple model negatedCosts
-            , laborers = updateLaborers model.laborers (updateLaborerAmount laborer -1)
-        }
+        { model | laborers = newLaborers }
 
     else
         model
@@ -235,7 +265,7 @@ updateResources resources updatedResource =
         resourcesMinusUpdatedResource =
             List.filter (\r -> r.name /= updatedResource.name) resources
     in
-    updatedResource :: resourcesMinusUpdatedResource
+    List.sortBy .index (updatedResource :: resourcesMinusUpdatedResource)
 
 
 updateBuildingAmount : Building -> Float -> Building
@@ -249,7 +279,7 @@ updateBuildings buildings updatedBuilding =
         buildingsMinusUpdatedBuilding =
             List.filter (\r -> r.name /= updatedBuilding.name) buildings
     in
-    updatedBuilding :: buildingsMinusUpdatedBuilding
+    List.sortBy .index (updatedBuilding :: buildingsMinusUpdatedBuilding)
 
 
 subscriptions : Model -> Sub Msg
@@ -266,8 +296,8 @@ view model =
     { title = "EricIdle"
     , body =
         [ div []
-            [ stylesheet
-            , hero "Eric Idle"
+            [ stylesheet model.darkly
+            , navBar model
             , section [ class "section" ]
                 [ div [ class "container" ]
                     [ div [ class "columns is-centered is-multiline" ]
@@ -280,6 +310,50 @@ view model =
             ]
         ]
     }
+
+
+navBarBurger =
+    a [role "button", class "navbar-burger", ariaLabel "menu", ariaExpanded "false"]
+        [ span [ariaHidden True] []
+        , span [ariaHidden True] []
+        , span [ariaHidden True] []
+        ]
+
+navBarBrand =
+    div [class "navbar-brand"]
+    [ a [class "navbar-item", href "/"]
+--        [img [src "https://bulma.io/images/bulma-logo.png", alt "Bulma: a modern CSS framework based on Flexbox", width 112, height 28] [] ]
+        [ text "Eric Idle" ]
+    , navBarBurger
+    ]
+
+navBarMenu model =
+    div [class "navbar-menu"]
+        [ div [class "navbar-start"]
+            [ div [class "navbar-item"]
+                [ div [class "buttons"] [debugButton, darklyButton model.darkly] ]
+
+            ]
+        , div [class "navbar-end"]
+            [
+            ]
+        ]
+
+debugButton =
+    button [class "button", onClick ToggleShowAll ] [text "Debug"]
+
+
+darklyButton isDarkly =
+    button [class "button", onClick ToggleDarkly ] [text (if isDarkly then "Normal" else "Darkly")]
+
+navBar model =
+    nav [class "navbar", role "navigation", ariaLabel "main navigation"]
+        [ navBarBrand
+        , navBarMenu model
+        ]
+
+
+
 
 
 resourcesTable : Model -> Html Msg
@@ -316,8 +390,15 @@ resourceRow model resource =
         , td [] [ text resource.name ]
         , td [ style "text-align" "right" ] [ text (myFormat resource.amount ++ " / " ++ myFormat (getResourceLimit model resource)) ]
         , td [ style "text-align" "right" ] [ text (myFormat (getResourceProductionRate model resource)) ]
-        , td [ style "text-align" "center" ] [ button [ class "button", onClick (HarvestResource resource) ] [ text "Harvest" ] ]
+        , td [ style "text-align" "center" ] [ harvestButton resource ]
         ]
+
+harvestButton : Resource -> Html Msg
+harvestButton resource =
+    if resource.name == "food" then
+       button [ class "button", onClick (HarvestResource resource) ] [ text "Harvest" ]
+    else
+        text ""
 
 
 icon : String -> Html msg
@@ -342,7 +423,7 @@ resourceCostDisplay model cost =
     in
     div [ class "tags has-addons" ]
         [ span [ class "tag is-light", style "padding" "0px" ] [ img [ style "border-radius" "4px 0 0 4px", class "image is-32x32", src ("../ico/" ++ resource.image) ] [] ]
-        , span [ class "tag is-medium is-light" ] [ text (myFormat cost.amount) ]
+        , span [ class "tag is-medium" ] [ text (myFormat cost.amount) ]
         ]
 
 
@@ -381,8 +462,8 @@ buildingRow model building =
         , td [ style "text-align" "center" ] (resourceCostsDisplay model (getMultipliedCosts building.cost building.amount))
         , td [ style "text-align" "right" ] [ text (String.fromFloat building.amount) ]
         , td [ style "text-align" "center" ]
-            [ button [ disabled (not (canAffordResourceCosts (getMultipliedCosts building.cost building.amount) model.resources)), class "button", onClick (BuyBuilding building) ] [ text "Buy" ]
-            , button [ disabled (building.amount <= 0), class "button", onClick (SellBuilding building) ] [ text "Sell" ]
+            [ button [ class "button", onClick (BuyBuilding building), disabled (not (canAffordResourceCosts (getMultipliedCosts building.cost building.amount) model.resources)) ] [ text "Buy" ]
+            , button [ class "button", onClick (SellBuilding building), disabled (building.amount <= 0) ] [ text "Sell" ]
             ]
         ]
 
@@ -443,7 +524,11 @@ laborerRow model laborer =
         , td [] [ text laborer.name ]
         , td [ style "text-align" "right" ] [ text (String.fromFloat laborer.amount) ]
         , td [ style "text-align" "center" ]
-            [ button [ disabled (not (canAffordResourceCosts ([ ResourceCost "villager" 1 ]) model.resources)), class "button", onClick (AddLaborer laborer) ] [ text "Buy" ]
-            , button [ disabled (laborer.amount <= 0), class "button", onClick (RemoveLaborer laborer) ] [ text "Sell" ]
+            [ button [ disabled (not (haveAnIdler model.laborers)), class "button", onClick (AddLaborer laborer) ] [ text "Add" ]
+            , button [ disabled (laborer.amount <= 0), class "button", onClick (RemoveLaborer laborer) ] [ text "Remove" ]
             ]
         ]
+
+haveAnIdler : List Laborer -> Bool
+haveAnIdler laborers =
+    (Util.getByName "idlers" laborers).amount > 0

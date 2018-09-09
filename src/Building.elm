@@ -20,6 +20,7 @@ type alias Building =
     , prereq : String
     , cost : List ResourceCost
     , effects : List ResourceEffect
+    , index : Int
 
     -- mutable
     , amount : Float
@@ -46,19 +47,19 @@ getByName name list =
 
 
 defaultBuilding =
-    Building "default" "default.png" "default" [ ResourceCost "food" 1 ] [ ResourceEffect ResourceLimit "villagers" Additive 2 ] 0 Hidden
+    Building "default" "default.png" "default" [ ResourceCost "food" 1 ] [ ResourceEffect ResourceLimit "villagers" Additive 2 ] 0 0 Hidden
 
 
 huts =
-    Building "huts" "tipi.png" "unlockHuts" [ ResourceCost "food" 1 ] [ ResourceEffect ResourceLimit "villagers" Additive 2 ] 0 Hidden
+    Building "huts" "tipi.png" "unlockHuts" [ ResourceCost "food" 1 ] [ ResourceEffect ResourceLimit "villagers" Additive 2 ] 1 0 Hidden
 
 
 farms =
-    Building "farms" "barn.png" "unlockFarming" [ ResourceCost "lumber" 1 ] [ ResourceEffect ResourceProduction "food" Multiplicative 0.05 ] 0 Hidden
+    Building "farms" "barn.png" "unlockFarming" [ ResourceCost "lumber" 1 ] [ ResourceEffect ResourceProduction "food" Multiplicative 0.05 ] 2 0 Hidden
 
 
 lumberMills =
-    Building "lumberMills" "circular-saw.png" "unlockWoodConstruction" [ ResourceCost "lumber" 2 ] [ ResourceEffect ResourceProduction "lumber" Multiplicative 0.05 ] 0 Hidden
+    Building "lumberMills" "circular-saw.png" "unlockWoodConstruction" [ ResourceCost "lumber" 2 ] [ ResourceEffect ResourceProduction "lumber" Multiplicative 0.05 ] 3 0 Hidden
 
 
 storerooms =
@@ -67,17 +68,17 @@ storerooms =
         "unlockStoneConstruction"
         [ ResourceCost "lumber" 5 ]
         [ ResourceEffect ResourceLimit "food" Additive 5, ResourceEffect ResourceLimit "lumber" Additive 5, ResourceEffect ResourceLimit "stone" Additive 5 ]
-        0
+        4 0
         Hidden
 
 
 quarries =
-    Building "quarries" "gold-mine.png" "unlockStoneConstruction" [ ResourceCost "lumber" 2 ] [ ResourceEffect ResourceProduction "stone" Multiplicative 0.06 ] 0 Hidden
+    Building "quarries" "gold-mine.png" "unlockStoneConstruction" [ ResourceCost "lumber" 2 ] [ ResourceEffect ResourceProduction "stone" Multiplicative 0.06 ] 5 0 Hidden
 
 
 schools =
-    Building "schools" "graduate-cap.png" "unlockSchools" [ ResourceCost "lumber" 3 ] [ ResourceEffect ResourceProduction "research" Multiplicative 0.06 ] 0 Hidden
+    Building "schools" "graduate-cap.png" "unlockSchools" [ ResourceCost "lumber" 3 ] [ ResourceEffect ResourceProduction "research" Multiplicative 0.06 ] 6 0 Hidden
 
 
 libraries =
-    Building "libraries" "book-cover.png" "unlockLibraries" [ ResourceCost "lumber" 4 ] [ ResourceEffect ResourceLimit "research" Additive 5 ] 0 Hidden
+    Building "libraries" "book-cover.png" "unlockLibraries" [ ResourceCost "lumber" 4 ] [ ResourceEffect ResourceLimit "research" Additive 5 ] 7 0 Hidden

@@ -19,6 +19,7 @@ type alias Laborer =
     , image : String
     , prereq : String
     , effects : List ResourceEffect
+    , index : Int
 
     -- mutable
     , amount : Float
@@ -35,28 +36,28 @@ getAggregateResourceEffectsForLaborer laborer =
     List.map (\effect -> {effect | amount = effect.amount * laborer.amount}) laborer.effects
 
 idlers =
-    Laborer "idlers" "watch.png" "unlockVillagers" [] 0 Hidden
+    Laborer "idlers" "watch.png" "unlockVillagers" [] 0 0 Hidden
 
 
 farmers =
-    Laborer "farmers" "farmer.png" "unlockVillagers" [ ResourceEffect ResourceProduction "food" Additive 0.5 ] 0 Hidden
+    Laborer "farmers" "farmer.png" "unlockVillagers" [ ResourceEffect ResourceProduction "food" Additive 0.5 ] 1 0 Hidden
 
 
 thinkers =
-    Laborer "thinkers" "think.png" "unlockVillagers" [ ResourceEffect ResourceProduction "research" Additive 0.2 ] 0 Hidden
+    Laborer "thinkers" "think.png" "unlockVillagers" [ ResourceEffect ResourceProduction "research" Additive 0.2 ] 2 0 Hidden
 
 
 foresters =
-    Laborer "foresters" "hand-saw.png" "unlockWoodConstruction" [ ResourceEffect ResourceProduction "lumber" Additive 0.2 ] 0 Hidden
+    Laborer "foresters" "hand-saw.png" "unlockWoodConstruction" [ ResourceEffect ResourceProduction "lumber" Additive 0.2 ] 3 0 Hidden
 
 
 hunters =
-    Laborer "hunters" "watch.png" "unlockHunting" [ ResourceEffect ResourceProduction "food" Additive 0.2 ] 0 Hidden
+    Laborer "hunters" "watch.png" "unlockHunting" [ ResourceEffect ResourceProduction "food" Additive 0.2 ] 4 0 Hidden
 
 
 miners =
-    Laborer "miners" "watch.png" "unlockStoneConstruction" [ ResourceEffect ResourceProduction "stone" Additive 0.1 ] 0 Hidden
+    Laborer "miners" "watch.png" "unlockStoneConstruction" [ ResourceEffect ResourceProduction "stone" Additive 0.1 ] 5 0 Hidden
 
 
 builders =
-    Laborer "builders" "watch.png" "unlockBuilders" [] 0 Hidden
+    Laborer "builders" "watch.png" "unlockBuilders" [] 6 0 Hidden
