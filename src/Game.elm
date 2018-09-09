@@ -22,5 +22,3 @@ import Util exposing (..)
 --getGameData : GameData
 --getGameData =
 --    GameData Resource.resources Laborer.laborers Building.buildings Tech.techs preReqs
-
-

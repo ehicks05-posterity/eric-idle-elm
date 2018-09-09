@@ -1,4 +1,4 @@
-module Building exposing (..)
+module Building exposing (Building, defaultBuilding, farms, getAggregateResourceEffects, getAggregateResourceEffectsForBuilding, getByName, huts, initialBuildings, libraries, lumberMills, quarries, schools, storerooms)
 
 import Util exposing (..)
 
@@ -32,9 +32,11 @@ getAggregateResourceEffects : List Building -> List ResourceEffect
 getAggregateResourceEffects buildings =
     flatten (List.map getAggregateResourceEffectsForBuilding buildings)
 
+
 getAggregateResourceEffectsForBuilding : Building -> List ResourceEffect
 getAggregateResourceEffectsForBuilding building =
-    List.map (\effect -> {effect | amount = effect.amount * building.amount}) building.effects
+    List.map (\effect -> { effect | amount = effect.amount * building.amount }) building.effects
+
 
 getByName : String -> List Building -> Building
 getByName name list =
@@ -68,7 +70,8 @@ storerooms =
         "unlockStoneConstruction"
         [ ResourceCost "lumber" 5 ]
         [ ResourceEffect ResourceLimit "food" Additive 5, ResourceEffect ResourceLimit "lumber" Additive 5, ResourceEffect ResourceLimit "stone" Additive 5 ]
-        4 0
+        4
+        0
         Hidden
 
 

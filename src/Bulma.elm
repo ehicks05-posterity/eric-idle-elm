@@ -18,15 +18,17 @@ hero title =
 
 
 stylesheet : Bool -> Html msg
-stylesheet darkly =
+stylesheet isDarkly =
     Html.node "link"
         [ Html.Attributes.rel "stylesheet"
-        , Html.Attributes.href (stylesheetAddress darkly)
+        , Html.Attributes.href (stylesheetAddress isDarkly)
         ]
         []
 
-stylesheetAddress darkly =
-    if darkly then
+
+stylesheetAddress isDarkly =
+    if isDarkly then
         "https://jenil.github.io/bulmaswatch/darkly/bulmaswatch.min.css"
+
     else
         "https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.1/css/bulma.css"

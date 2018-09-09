@@ -1,6 +1,7 @@
-module Util exposing (..)
+module Util exposing (AggregationType(..), DisplayStatus(..), LockStatus(..), ResourceCost, ResourceEffect, SubType(..), flatten, getByName, getResourceCostByResource, hasName)
 
 import Debug
+
 
 flatten : List (List a) -> List a
 flatten list =
@@ -16,9 +17,11 @@ getByName name list =
         Nothing ->
             Debug.todo "TODO"
 
-hasName : String -> {a | name : String} -> Bool
-hasName desiredName {name} =
+
+hasName : String -> { a | name : String } -> Bool
+hasName desiredName { name } =
     name == desiredName
+
 
 type DisplayStatus
     = Hidden
@@ -49,6 +52,7 @@ getResourceCostByResource list resourceName =
 type AggregationType
     = Additive
     | Multiplicative
+
 
 type SubType
     = ResourceProduction

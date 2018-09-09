@@ -1,4 +1,4 @@
-module Laborer exposing (..)
+module Laborer exposing (Laborer, builders, farmers, foresters, getAggregateResourceEffects, getAggregateResourceEffectsForLaborer, hunters, idlers, initialLaborers, miners, thinkers)
 
 import Util exposing (..)
 
@@ -31,9 +31,11 @@ getAggregateResourceEffects : List Laborer -> List ResourceEffect
 getAggregateResourceEffects laborers =
     flatten (List.map getAggregateResourceEffectsForLaborer laborers)
 
+
 getAggregateResourceEffectsForLaborer : Laborer -> List ResourceEffect
 getAggregateResourceEffectsForLaborer laborer =
-    List.map (\effect -> {effect | amount = effect.amount * laborer.amount}) laborer.effects
+    List.map (\effect -> { effect | amount = effect.amount * laborer.amount }) laborer.effects
+
 
 idlers =
     Laborer "idlers" "watch.png" "unlockVillagers" [] 0 0 Hidden

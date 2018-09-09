@@ -14,6 +14,7 @@ import PreReq exposing (..)
 import Random
 import Resource exposing (..)
 import Tech exposing (..)
+import Time
 import Util exposing (..)
 
 
@@ -41,13 +42,14 @@ type alias Model =
     , technologies : List Tech.Tech
     , prereqs : List PreReq.PreReq
     , showAll : Bool
-    , darkly : Bool
+    , isDarkly : Bool
+    , nextVillager : Time.Posix
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model Resource.resources Laborer.initialLaborers Building.initialBuildings Tech.techs PreReq.preReqs True False
+    ( Model Resource.resources Laborer.initialLaborers Building.initialBuildings Tech.techs PreReq.preReqs True False (Time.millisToPosix 0)
     , Cmd.none
     )
 
@@ -57,7 +59,7 @@ init _ =
 
 
 type Msg
-    = DoTick
+    = Tick Time.Posix
     | HarvestResource Resource
     | BuyBuilding Building
     | SellBuilding Building
@@ -70,8 +72,8 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        DoTick ->
-            ( model
+        Tick posixTime ->
+            ( doTick model
             , Cmd.none
             )
 
@@ -101,18 +103,20 @@ update msg model =
             )
 
         ToggleShowAll ->
-            ( {model | showAll = not model.showAll}
+            ( { model | showAll = not model.showAll }
             , Cmd.none
             )
 
         ToggleDarkly ->
-            ( {model | darkly = not model.darkly}
+            ( { model | isDarkly = not model.isDarkly }
             , Cmd.none
             )
+
 
 doTick : Model -> Model
 doTick model =
     model
+
 
 getAllResourceEffects : Model -> List ResourceEffect
 getAllResourceEffects model =
@@ -122,16 +126,21 @@ getAllResourceEffects model =
 addLaborer : Model -> Laborer -> Model
 addLaborer model laborer =
     let
-        newIdler = updateLaborerAmount (Util.getByName "idlers" model.laborers) -1
-        newLaborer = updateLaborerAmount laborer 1
+        newIdler =
+            updateLaborerAmount (Util.getByName "idlers" model.laborers) -1
 
-        laborerName = laborer.name
-        laborers = model.laborers
---        newLaborers = {laborers | idlers = newIdler, laborerName = newLaborer}
+        newLaborer =
+            updateLaborerAmount laborer 1
+
+        laborerName =
+            laborer.name
+
+        laborers =
+            model.laborers
 
         newLaborers =
-               updateLaborers newIdler model.laborers
-            |> updateLaborers newLaborer
+            updateLaborers newIdler model.laborers
+                |> updateLaborers newLaborer
     in
     if haveAnIdler model.laborers then
         { model | laborers = newLaborers }
@@ -157,22 +166,28 @@ updateLaborers updatedLaborer laborers =
 removeLaborer : Model -> Laborer -> Model
 removeLaborer model laborer =
     let
-        newIdler = updateLaborerAmount (Util.getByName "idlers" model.laborers) 1
-        newLaborer = updateLaborerAmount laborer -1
+        newIdler =
+            updateLaborerAmount (Util.getByName "idlers" model.laborers) 1
 
-        laborerName = laborer.name
-        laborers = model.laborers
---        newLaborers = {laborers | idlers = newIdler, laborerName = newLaborer}
+        newLaborer =
+            updateLaborerAmount laborer -1
+
+        laborerName =
+            laborer.name
+
+        laborers =
+            model.laborers
 
         newLaborers =
-               updateLaborers newIdler model.laborers
-            |> updateLaborers newLaborer
+            updateLaborers newIdler model.laborers
+                |> updateLaborers newLaborer
     in
     if laborer.amount > 0 then
         { model | laborers = newLaborers }
 
     else
         model
+
 
 buyBuilding : Model -> Building -> Model
 buyBuilding model building =
@@ -226,24 +241,44 @@ updateResourceAmountFromCosts model costs resource =
 getResourceLimit : Model -> Resource -> Float
 getResourceLimit model resource =
     let
-        mods = List.filter (\re -> re.resourceName == resource.name) (getAllResourceEffects model)
-        limitMods = List.filter (\re -> re.subType == ResourceLimit) mods
-        (additiveMods, multiplicativeMods) = List.partition (\re -> re.aggregationType == Additive) limitMods
-        additiveTotal = List.foldr (+) 0 (List.map (\re -> re.amount) additiveMods)
-        multiplicativeTotal = List.foldr (+) 0 (List.map (\re -> re.amount) multiplicativeMods)
+        mods =
+            List.filter (\re -> re.resourceName == resource.name) (getAllResourceEffects model)
+
+        limitMods =
+            List.filter (\re -> re.subType == ResourceLimit) mods
+
+        ( additiveMods, multiplicativeMods ) =
+            List.partition (\re -> re.aggregationType == Additive) limitMods
+
+        additiveTotal =
+            List.foldr (+) 0 (List.map (\re -> re.amount) additiveMods)
+
+        multiplicativeTotal =
+            List.foldr (+) 0 (List.map (\re -> re.amount) multiplicativeMods)
     in
-        (resource.baseLimit + additiveTotal) * (1 + multiplicativeTotal)
+    (resource.baseLimit + additiveTotal) * (1 + multiplicativeTotal)
+
 
 getResourceProductionRate : Model -> Resource -> Float
 getResourceProductionRate model resource =
     let
-        mods = List.filter (\re -> re.resourceName == resource.name) (getAllResourceEffects model)
-        productionMods = List.filter (\re -> re.subType == ResourceProduction) mods
-        (additiveMods, multiplicativeMods) = List.partition (\re -> re.aggregationType == Additive) productionMods
-        additiveTotal = List.foldr (+) 0 (List.map (\re -> re.amount) additiveMods)
-        multiplicativeTotal = List.foldr (+) 0 (List.map (\re -> re.amount) multiplicativeMods)
+        mods =
+            List.filter (\re -> re.resourceName == resource.name) (getAllResourceEffects model)
+
+        productionMods =
+            List.filter (\re -> re.subType == ResourceProduction) mods
+
+        ( additiveMods, multiplicativeMods ) =
+            List.partition (\re -> re.aggregationType == Additive) productionMods
+
+        additiveTotal =
+            List.foldr (+) 0 (List.map (\re -> re.amount) additiveMods)
+
+        multiplicativeTotal =
+            List.foldr (+) 0 (List.map (\re -> re.amount) multiplicativeMods)
     in
-        additiveTotal * (1 + multiplicativeTotal)
+    additiveTotal * (1 + multiplicativeTotal)
+
 
 
 {-
@@ -254,7 +289,8 @@ getResourceProductionRate model resource =
 updateResourceAmount : Model -> Resource -> Float -> Resource
 updateResourceAmount model resource amount =
     let
-        newAmount = min (resource.amount + amount) (getResourceLimit model resource)
+        newAmount =
+            min (resource.amount + amount) (getResourceLimit model resource)
     in
     { resource | amount = newAmount }
 
@@ -282,9 +318,13 @@ updateBuildings buildings updatedBuilding =
     List.sortBy .index (updatedBuilding :: buildingsMinusUpdatedBuilding)
 
 
+
+-- SUBSCRIPTIONS
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    Time.every 1000 Tick
 
 
 
@@ -296,14 +336,19 @@ view model =
     { title = "EricIdle"
     , body =
         [ div []
-            [ stylesheet model.darkly
+            [ stylesheet model.isDarkly
             , navBar model
             , section [ class "section" ]
                 [ div [ class "container" ]
-                    [ div [ class "columns is-centered is-multiline" ]
-                        [ div [ class "column is-narrow" ] [ resourcesTable model ]
-                        , div [ class "column is-narrow" ] [ buildingsTable model ]
-                        , div [ class "column is-narrow" ] [ laborersTable model ]
+                    [ div [ class "columns is-centered" ]
+                        [ div [ class "column" ]
+                            [ div [ class "columns is-centered is-multiline" ]
+                                [ div [ class "column is-narrow" ] [ resourcesTable model ]
+                                , div [ class "column is-narrow" ] [ buildingsTable model ]
+                                , div [ class "column is-narrow" ] [ laborersTable model ]
+                                ]
+                            ]
+                        , div [ class "column is-one-fifth" ] [ text "info sidebar" ]
                         ]
                     ]
                 ]
@@ -313,47 +358,54 @@ view model =
 
 
 navBarBurger =
-    a [role "button", class "navbar-burger", ariaLabel "menu", ariaExpanded "false"]
-        [ span [ariaHidden True] []
-        , span [ariaHidden True] []
-        , span [ariaHidden True] []
+    a [ role "button", class "navbar-burger", ariaLabel "menu", ariaExpanded "false" ]
+        [ span [ ariaHidden True ] []
+        , span [ ariaHidden True ] []
+        , span [ ariaHidden True ] []
         ]
+
 
 navBarBrand =
-    div [class "navbar-brand"]
-    [ a [class "navbar-item", href "/"]
---        [img [src "https://bulma.io/images/bulma-logo.png", alt "Bulma: a modern CSS framework based on Flexbox", width 112, height 28] [] ]
-        [ text "Eric Idle" ]
-    , navBarBurger
-    ]
-
-navBarMenu model =
-    div [class "navbar-menu"]
-        [ div [class "navbar-start"]
-            [ div [class "navbar-item"]
-                [ div [class "buttons"] [debugButton, darklyButton model.darkly] ]
-
-            ]
-        , div [class "navbar-end"]
-            [
-            ]
+    div [ class "navbar-brand" ]
+        [ a [ class "navbar-item", href "/" ]
+            --        [img [src "https://bulma.io/images/bulma-logo.png", alt "Bulma: a modern CSS framework based on Flexbox", width 112, height 28] [] ]
+            [ text "Eric Idle" ]
+        , navBarBurger
         ]
 
+
+navBarMenu model =
+    div [ class "navbar-menu" ]
+        [ div [ class "navbar-start" ]
+            [ div [ class "navbar-item" ]
+                [ div [ class "buttons" ] [ debugButton, darklyButton model.isDarkly ] ]
+            ]
+        , div [ class "navbar-end" ]
+            []
+        ]
+
+
 debugButton =
-    button [class "button", onClick ToggleShowAll ] [text "Debug"]
+    button [ class "button", onClick ToggleShowAll ] [ text "Debug" ]
 
 
 darklyButton isDarkly =
-    button [class "button", onClick ToggleDarkly ] [text (if isDarkly then "Normal" else "Darkly")]
+    button [ class "button", onClick ToggleDarkly ]
+        [ text
+            (if isDarkly then
+                "Normal"
 
-navBar model =
-    nav [class "navbar", role "navigation", ariaLabel "main navigation"]
-        [ navBarBrand
-        , navBarMenu model
+             else
+                "Darkly"
+            )
         ]
 
 
-
+navBar model =
+    nav [ class "navbar", role "navigation", ariaLabel "main navigation" ]
+        [ navBarBrand
+        , navBarMenu model
+        ]
 
 
 resourcesTable : Model -> Html Msg
@@ -393,10 +445,12 @@ resourceRow model resource =
         , td [ style "text-align" "center" ] [ harvestButton resource ]
         ]
 
+
 harvestButton : Resource -> Html Msg
 harvestButton resource =
     if resource.name == "food" then
-       button [ class "button", onClick (HarvestResource resource) ] [ text "Harvest" ]
+        button [ class "button", onClick (HarvestResource resource) ] [ text "Harvest" ]
+
     else
         text ""
 
@@ -470,12 +524,13 @@ buildingRow model building =
 
 getMultipliedCosts : List ResourceCost -> Float -> List ResourceCost
 getMultipliedCosts costs n =
-    List.map (\c -> { c | amount = c.amount * (getQuantityMultiplier n) }) costs
+    List.map (\c -> { c | amount = c.amount * getQuantityMultiplier n }) costs
 
 
 getQuantityMultiplier : Float -> Float
 getQuantityMultiplier quantity =
     1.04 ^ quantity
+
 
 canAffordResourceCosts : List ResourceCost -> List Resource -> Bool
 canAffordResourceCosts costs resources =
@@ -528,6 +583,7 @@ laborerRow model laborer =
             , button [ disabled (laborer.amount <= 0), class "button", onClick (RemoveLaborer laborer) ] [ text "Remove" ]
             ]
         ]
+
 
 haveAnIdler : List Laborer -> Bool
 haveAnIdler laborers =
