@@ -124,30 +124,44 @@ update msg model =
 doTick : Model -> Model
 doTick model =
     let
-        newPreReqs = PreReq.updatePreReqs model.preReqs
-        newResources = resourceTick model
-        nextVillagerArrival = doVillagerArrival
+        newPreReqs =
+            PreReq.updatePreReqs model.preReqs
+
+        newResources =
+            resourceTick model
+
+        nextVillagerArrival =
+            doVillagerArrival
     in
-        {model | preReqs = newPreReqs, resources = newResources}
+    { model | preReqs = newPreReqs, resources = newResources }
 
 
 resourceTick : Model -> List Resource
 resourceTick model =
     let
-        resources = model.resources
+        resources =
+            model.resources
     in
-        resources
+    resources
 
 
 doVillagerArrival : Model -> Bool
 doVillagerArrival model =
     let
-        villagers = Util.getByName "villagers" model.resources
-        villagersAmount = villagers.amount
-        villagersLimit = getResourceLimit model villagers
-        nextVillagerArrival = model.nextVillagerArrival
+        villagers =
+            Util.getByName "villagers" model.resources
+
+        villagersAmount =
+            villagers.amount
+
+        villagersLimit =
+            getResourceLimit model villagers
+
+        nextVillagerArrival =
+            model.nextVillagerArrival
     in
-        villagersAmount < villagersLimit
+    villagersAmount < villagersLimit
+
 
 getAllResourceEffects : Model -> List ResourceEffect
 getAllResourceEffects model =
@@ -380,8 +394,7 @@ view model =
                                 ]
                             ]
                         , div [ class "column is-one-fifth" ]
-                            [
-                              infoBuildingDisplay model
+                            [ infoBuildingDisplay model
                             ]
                         ]
                     ]
@@ -390,27 +403,31 @@ view model =
         ]
     }
 
+
 infoBuildingDisplay : Model -> Html Msg
 infoBuildingDisplay model =
     let
         infoBuilding =
             case model.infoBuilding of
-                "" -> Maybe.Nothing
-                _ -> Maybe.Just (Util.getByName model.infoBuilding model.buildings)
-    in
-        case infoBuilding of
-            Just building ->
-                div []
-                    [
-                      h2 [class "title"] [text building.name]
-                    , h4 [class "subtitle"] [text "flavor text"]
-                    , img [class "image is-64x64", src (iconUrl building.image)] [text "flavor text"]
-                    , p [] [text (String.fromFloat building.amount)]
-                    , div [] (resourceCostsDisplay model building.cost)
-                    ]
-            Nothing ->
-                div [] []
+                "" ->
+                    Maybe.Nothing
 
+                _ ->
+                    Maybe.Just (Util.getByName model.infoBuilding model.buildings)
+    in
+    case infoBuilding of
+        Just building ->
+            div []
+                [ p [ class "title" ] [ text building.name ]
+                , p [ class "subtitle" ] [ text "flavor text" ]
+                , img [ class "image is-64x64", src (iconUrl building.image) ] []
+                , p [] [ text ("Amount: " ++ String.fromFloat building.amount) ]
+                , div [] (resourceCostsDisplay model (getMultipliedCosts building.cost building.amount))
+                , resourceEffectsDisplay building.effects
+                ]
+
+        Nothing ->
+            div [] []
 
 
 navBarBurger =
@@ -515,6 +532,7 @@ icon : String -> Html msg
 icon iconSrc =
     img [ class "image is-32x32", src (iconUrl iconSrc) ] []
 
+
 iconUrl : String -> String
 iconUrl iconSrc =
     "../ico/" ++ iconSrc
@@ -541,6 +559,46 @@ resourceCostDisplay model cost =
         ]
 
 
+resourceEffectsDisplay : List ResourceEffect -> Html msg
+resourceEffectsDisplay effects =
+    table [ class "table is-narrow" ] (List.map resourceEffectDisplay effects)
+
+
+resourceEffectDisplay : ResourceEffect -> Html msg
+resourceEffectDisplay effect =
+    let
+        amount =
+            case effect.aggregationType of
+                Additive ->
+                    effect.amount
+
+                Multiplicative ->
+                    effect.amount * 100
+
+        displayAmount =
+            String.fromFloat amount
+
+        subType =
+            case effect.subType of
+                ResourceProduction ->
+                    "production"
+
+                ResourceLimit ->
+                    "limit"
+
+        aggregationType =
+            case effect.aggregationType of
+                Additive ->
+                    ""
+
+                Multiplicative ->
+                    "%"
+    in
+    tr [ class "" ]
+        [ td [] [ text ("Increases " ++ effect.resourceName ++ " " ++ subType ++ " by " ++ displayAmount ++ aggregationType) ]
+        ]
+
+
 buildingsTable : Model -> Html Msg
 buildingsTable model =
     table [ class "table is-narrow" ]
@@ -556,7 +614,6 @@ buildingHeader =
         , tr []
             [ th [] [ text "" ]
             , th [] [ text "name" ]
-            , th [ style "text-align" "center" ] [ text "Price" ]
             , th [ style "text-align" "right" ] [ text "amount" ]
             , th [ style "text-align" "center" ] [ text "" ]
             ]
@@ -570,10 +627,9 @@ buildingRows model =
 
 buildingRow : Model -> Building -> Html Msg
 buildingRow model building =
-    tr [onMouseOver (ShowInfo building)]
+    tr [ onMouseOver (ShowInfo building) ]
         [ td [] [ icon building.image ]
         , td [] [ text building.name ]
-        , td [ style "text-align" "center" ] (resourceCostsDisplay model (getMultipliedCosts building.cost building.amount))
         , td [ style "text-align" "right" ] [ text (String.fromFloat building.amount) ]
         , td [ style "text-align" "center" ]
             [ button [ class "button", onClick (BuyBuilding building), disabled (not (canAffordResourceCosts (getMultipliedCosts building.cost building.amount) model.resources)) ] [ text "Buy" ]

@@ -19,9 +19,11 @@ preReqs =
     , unlockBuilders
     ]
 
+
 isUnlocked : PreReq -> Bool
 isUnlocked preReq =
     preReq.status == Util.Unlocked
+
 
 updatePreReqs : List PreReq -> List PreReq
 updatePreReqs list =
