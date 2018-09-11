@@ -19,10 +19,13 @@ preReqs =
     , unlockBuilders
     ]
 
+isUnlocked : PreReq -> Bool
+isUnlocked preReq =
+    preReq.status == Util.Unlocked
 
 updatePreReqs : List PreReq -> List PreReq
 updatePreReqs list =
-    List.map updatePreReq (List.filter (\item -> item.status == Locked) list)
+    List.map updatePreReq (List.filter (\item -> item.status == Util.Locked) list)
 
 
 updatePreReq : PreReq -> PreReq

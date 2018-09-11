@@ -10,6 +10,7 @@ import Html.Attributes exposing (alt, class, colspan, disabled, height, href, sr
 import Html.Attributes.Aria exposing (ariaExpanded, ariaHidden, ariaLabel, role)
 import Html.Events exposing (..)
 import Laborer exposing (..)
+import Maybe exposing (Maybe)
 import PreReq exposing (..)
 import Random
 import Resource exposing (..)
@@ -40,16 +41,17 @@ type alias Model =
     , laborers : List Laborer.Laborer
     , buildings : List Building.Building
     , technologies : List Tech.Tech
-    , prereqs : List PreReq.PreReq
+    , preReqs : List PreReq.PreReq
     , showAll : Bool
     , isDarkly : Bool
-    , nextVillager : Time.Posix
+    , nextVillagerArrival : Time.Posix
+    , infoBuilding : String
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model Resource.resources Laborer.initialLaborers Building.initialBuildings Tech.techs PreReq.preReqs True False (Time.millisToPosix 0)
+    ( Model Resource.resources Laborer.initialLaborers Building.initialBuildings Tech.techs PreReq.preReqs True False (Time.millisToPosix 0) ""
     , Cmd.none
     )
 
@@ -67,6 +69,7 @@ type Msg
     | RemoveLaborer Laborer
     | ToggleShowAll
     | ToggleDarkly
+    | ShowInfo Building
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -112,11 +115,39 @@ update msg model =
             , Cmd.none
             )
 
+        ShowInfo building ->
+            ( { model | infoBuilding = building.name }
+            , Cmd.none
+            )
+
 
 doTick : Model -> Model
 doTick model =
-    model
+    let
+        newPreReqs = PreReq.updatePreReqs model.preReqs
+        newResources = resourceTick model
+        nextVillagerArrival = doVillagerArrival
+    in
+        {model | preReqs = newPreReqs, resources = newResources}
 
+
+resourceTick : Model -> List Resource
+resourceTick model =
+    let
+        resources = model.resources
+    in
+        resources
+
+
+doVillagerArrival : Model -> Bool
+doVillagerArrival model =
+    let
+        villagers = Util.getByName "villagers" model.resources
+        villagersAmount = villagers.amount
+        villagersLimit = getResourceLimit model villagers
+        nextVillagerArrival = model.nextVillagerArrival
+    in
+        villagersAmount < villagersLimit
 
 getAllResourceEffects : Model -> List ResourceEffect
 getAllResourceEffects model =
@@ -348,13 +379,38 @@ view model =
                                 , div [ class "column is-narrow" ] [ laborersTable model ]
                                 ]
                             ]
-                        , div [ class "column is-one-fifth" ] [ text "info sidebar" ]
+                        , div [ class "column is-one-fifth" ]
+                            [
+                              infoBuildingDisplay model
+                            ]
                         ]
                     ]
                 ]
             ]
         ]
     }
+
+infoBuildingDisplay : Model -> Html Msg
+infoBuildingDisplay model =
+    let
+        infoBuilding =
+            case model.infoBuilding of
+                "" -> Maybe.Nothing
+                _ -> Maybe.Just (Util.getByName model.infoBuilding model.buildings)
+    in
+        case infoBuilding of
+            Just building ->
+                div []
+                    [
+                      h2 [class "title"] [text building.name]
+                    , h4 [class "subtitle"] [text "flavor text"]
+                    , img [class "image is-64x64", src (iconUrl building.image)] [text "flavor text"]
+                    , p [] [text (String.fromFloat building.amount)]
+                    , div [] (resourceCostsDisplay model building.cost)
+                    ]
+            Nothing ->
+                div [] []
+
 
 
 navBarBurger =
@@ -457,7 +513,11 @@ harvestButton resource =
 
 icon : String -> Html msg
 icon iconSrc =
-    img [ class "image is-32x32", src ("../ico/" ++ iconSrc) ] []
+    img [ class "image is-32x32", src (iconUrl iconSrc) ] []
+
+iconUrl : String -> String
+iconUrl iconSrc =
+    "../ico/" ++ iconSrc
 
 
 myFormat n =
@@ -510,7 +570,7 @@ buildingRows model =
 
 buildingRow : Model -> Building -> Html Msg
 buildingRow model building =
-    tr []
+    tr [onMouseOver (ShowInfo building)]
         [ td [] [ icon building.image ]
         , td [] [ text building.name ]
         , td [ style "text-align" "center" ] (resourceCostsDisplay model (getMultipliedCosts building.cost building.amount))
