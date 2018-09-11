@@ -498,7 +498,7 @@ resourceHeader =
             , th [] [ text "name" ]
             , th [ style "text-align" "right" ] [ text "amount" ]
             , th [ style "text-align" "right" ] [ text "rate" ]
-            , th [ style "text-align" "center" ] [ text "harvest" ]
+            , th [ style "text-align" "center" ] [ text "" ]
             ]
         ]
 
@@ -522,7 +522,7 @@ resourceRow model resource =
 harvestButton : Resource -> Html Msg
 harvestButton resource =
     if resource.name == "food" then
-        button [ class "button", onClick (HarvestResource resource) ] [ text "Harvest" ]
+        button [ class "button", onClick (HarvestResource resource) ] [ text "+" ]
 
     else
         text ""
@@ -601,23 +601,14 @@ resourceEffectDisplay effect =
 
 buildingsTable : Model -> Html Msg
 buildingsTable model =
-    table [ class "table is-narrow" ]
+    ul [ class "table is-narrow" ]
         (buildingRows model)
 
 
 buildingHeader : Html msg
 buildingHeader =
     thead [ class "thead" ]
-        [ tr []
-            [ th [ colspan 100, style "text-align" "center" ] [ text "Buildings" ]
-            ]
-        , tr []
-            [ th [] [ text "" ]
-            , th [] [ text "name" ]
-            , th [ style "text-align" "right" ] [ text "amount" ]
-            , th [ style "text-align" "center" ] [ text "" ]
-            ]
-        ]
+        [ tr [] [ th [ colspan 100, style "text-align" "center" ] [ text "Buildings" ] ] ]
 
 
 buildingRows : Model -> List (Html Msg)
@@ -628,12 +619,17 @@ buildingRows model =
 buildingRow : Model -> Building -> Html Msg
 buildingRow model building =
     tr [ onMouseOver (ShowInfo building) ]
-        [ td [] [ icon building.image ]
-        , td [] [ text building.name ]
-        , td [ style "text-align" "right" ] [ text (String.fromFloat building.amount) ]
-        , td [ style "text-align" "center" ]
-            [ button [ class "button", onClick (BuyBuilding building), disabled (not (canAffordResourceCosts (getMultipliedCosts building.cost building.amount) model.resources)) ] [ text "Buy" ]
-            , button [ class "button", onClick (SellBuilding building), disabled (building.amount <= 0) ] [ text "Sell" ]
+        [ td []
+            [ div [ class "buttons has-addons" ]
+                [ button
+                    [ class "button is-expanded"
+                    , onClick (BuyBuilding building)
+                    , disabled (not (canAffordResourceCosts (getMultipliedCosts building.cost building.amount) model.resources))
+                    ]
+                    [ text building.name ]
+                , button [ class "button is-static" ] [ text (String.fromFloat building.amount) ]
+                , button [ class "button", onClick (SellBuilding building), disabled (building.amount <= 0) ] [ text "Sell" ]
+                ]
             ]
         ]
 
@@ -674,12 +670,6 @@ laborerHeader =
         [ tr []
             [ th [ colspan 100, style "text-align" "center" ] [ text "Laborers" ]
             ]
-        , tr []
-            [ th [] [ text "" ]
-            , th [] [ text "name" ]
-            , th [ style "text-align" "right" ] [ text "amount" ]
-            , th [ style "text-align" "center" ] [ text "" ]
-            ]
         ]
 
 
@@ -691,12 +681,17 @@ laborerRows model =
 laborerRow : Model -> Laborer -> Html Msg
 laborerRow model laborer =
     tr []
-        [ td [] [ icon laborer.image ]
-        , td [] [ text laborer.name ]
-        , td [ style "text-align" "right" ] [ text (String.fromFloat laborer.amount) ]
-        , td [ style "text-align" "center" ]
-            [ button [ disabled (not (haveAnIdler model.laborers)), class "button", onClick (AddLaborer laborer) ] [ text "Add" ]
-            , button [ disabled (laborer.amount <= 0), class "button", onClick (RemoveLaborer laborer) ] [ text "Remove" ]
+        [ td []
+            [ div [ class "buttons has-addons" ]
+                [ button
+                    [ class "button is-expanded"
+                    , onClick (AddLaborer laborer)
+                    , disabled (not (haveAnIdler model.laborers))
+                    ]
+                    [ text laborer.name ]
+                , button [ class "button is-static" ] [ text (String.fromFloat laborer.amount) ]
+                , button [ class "button", onClick (RemoveLaborer laborer), disabled (laborer.amount <= 0) ] [ text "-" ]
+                ]
             ]
         ]
 
