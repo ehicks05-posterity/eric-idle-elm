@@ -45,13 +45,14 @@ type alias Model =
     , showAll : Bool
     , isDarkly : Bool
     , nextVillagerArrival : Time.Posix
-    , infoBuilding : String
+    , infoEntityName : String
+    , infoEntityType : String
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model Resource.resources Laborer.initialLaborers Building.initialBuildings Tech.techs PreReq.preReqs True False (Time.millisToPosix 0) ""
+    ( Model Resource.resources Laborer.initialLaborers Building.initialBuildings Tech.techs PreReq.preReqs True False (Time.millisToPosix 0) "" ""
     , Cmd.none
     )
 
@@ -69,7 +70,7 @@ type Msg
     | RemoveLaborer Laborer
     | ToggleShowAll
     | ToggleDarkly
-    | ShowInfo Building
+    | ShowInfo String String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -115,8 +116,8 @@ update msg model =
             , Cmd.none
             )
 
-        ShowInfo building ->
-            ( { model | infoBuilding = building.name }
+        ShowInfo infoEntityName infoEntityType ->
+            ( { model | infoEntityName = infoEntityName, infoEntityType = infoEntityType }
             , Cmd.none
             )
 
@@ -394,7 +395,7 @@ view model =
                                 ]
                             ]
                         , div [ class "column is-one-fifth" ]
-                            [ infoBuildingDisplay model
+                            [ infoDisplay model
                             ]
                         ]
                     ]
@@ -403,17 +404,23 @@ view model =
         ]
     }
 
+infoDisplay : Model -> Html Msg
+infoDisplay model =
+    case model.infoEntityType of
+        "building" -> infoBuildingDisplay model
+        "laborer" -> infoLaborerDisplay model
+        _ -> div [] []
 
 infoBuildingDisplay : Model -> Html Msg
 infoBuildingDisplay model =
     let
         infoBuilding =
-            case model.infoBuilding of
+            case model.infoEntityName of
                 "" ->
                     Maybe.Nothing
 
                 _ ->
-                    Maybe.Just (Util.getByName model.infoBuilding model.buildings)
+                    Maybe.Just (Util.getByName model.infoEntityName model.buildings)
     in
     case infoBuilding of
         Just building ->
@@ -424,6 +431,32 @@ infoBuildingDisplay model =
                 , p [] [ text ("Amount: " ++ String.fromFloat building.amount) ]
                 , div [] (resourceCostsDisplay model (getMultipliedCosts building.cost building.amount))
                 , resourceEffectsDisplay building.effects
+                ]
+
+        Nothing ->
+            div [] []
+
+
+infoLaborerDisplay : Model -> Html Msg
+infoLaborerDisplay model =
+    let
+        infoLaborer =
+            case model.infoEntityName of
+                "" ->
+                    Maybe.Nothing
+
+                _ ->
+                    Maybe.Just (Util.getByName model.infoEntityName model.laborers)
+    in
+    case infoLaborer of
+        Just laborer ->
+            div []
+                [ p [ class "title" ] [ text laborer.name ]
+                , p [ class "subtitle" ] [ text "flavor text" ]
+                , img [ class "image is-64x64", src (iconUrl laborer.image) ] []
+                , p [] [ text ("Amount: " ++ String.fromFloat laborer.amount) ]
+                , div [] (resourceCostsDisplay model [ResourceCost "villagers" 1])
+                , resourceEffectsDisplay laborer.effects
                 ]
 
         Nothing ->
@@ -618,7 +651,7 @@ buildingRows model =
 
 buildingRow : Model -> Building -> Html Msg
 buildingRow model building =
-    tr [ onMouseOver (ShowInfo building) ]
+    tr [ onMouseOver (ShowInfo building.name "building") ]
         [ td []
             [ div [ class "buttons has-addons" ]
                 [ button
@@ -680,7 +713,7 @@ laborerRows model =
 
 laborerRow : Model -> Laborer -> Html Msg
 laborerRow model laborer =
-    tr []
+    tr [ onMouseOver (ShowInfo laborer.name "laborer") ]
         [ td []
             [ div [ class "buttons has-addons" ]
                 [ button
