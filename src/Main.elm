@@ -6,7 +6,7 @@ import Bulma exposing (..)
 import FormatNumber
 import FormatNumber.Locales exposing (usLocale)
 import Html exposing (..)
-import Html.Attributes exposing (alt, class, colspan, disabled, height, href, src, style, width)
+import Html.Attributes exposing (alt, class, colspan, disabled, height, href, src, style, value, width)
 import Html.Attributes.Aria exposing (ariaExpanded, ariaHidden, ariaLabel, role)
 import Html.Events exposing (..)
 import Laborer exposing (..)
@@ -418,7 +418,7 @@ updateBuildings buildings updatedBuilding =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Time.every 1000 Tick
+    Time.every 16.67 Tick
 
 
 
@@ -435,7 +435,7 @@ view model =
             , div []
                 [ text
                     (if model.waitingForAVillager then
-                        "Waiting for a villager..." ++ "(" ++ timeUntilVillagerArrives model ++ ")"
+                        "Waiting for a villager..." ++ "(" ++ String.fromFloat (Util.timeDifference model.currentTime model.nextVillagerArrival) ++ " seconds)"
 
                      else
                         "Not waiting for a villager..."
@@ -461,67 +461,6 @@ view model =
             ]
         ]
     }
-
-
-formatTime zone time =
-    let
-        militaryHour =
-            Time.toHour zone time
-
-        amPm =
-            if militaryHour < 12 then
-                "AM"
-
-            else
-                "PM"
-
-        hourNonMilitary =
-            if militaryHour < 12 then
-                militaryHour
-
-            else
-                militaryHour - 12
-
-        hour =
-            String.fromInt hourNonMilitary
-
-        minute =
-            formatTimeComponent (Time.toMinute zone time)
-
-        second =
-            formatTimeComponent (Time.toSecond zone time)
-    in
-    hour ++ ":" ++ minute ++ ":" ++ second ++ " " ++ amPm
-
-
-timeUntilVillagerArrives model =
-    timeDifference model.currentTime model.nextVillagerArrival
-
-
-timeDifference posix1 posix2 =
-    let
-        millis =
-            Time.posixToMillis posix2 - Time.posixToMillis posix1
-
-        seconds =
-            toFloat millis / 1000
-
-        displaySeconds =
-            myFormat seconds
-    in
-    displaySeconds ++ " seconds"
-
-
-formatTimeComponent int =
-    let
-        leadingZero =
-            if int < 10 then
-                "0"
-
-            else
-                ""
-    in
-    leadingZero ++ String.fromInt int
 
 
 infoDisplay : Model -> Html Msg
@@ -551,8 +490,8 @@ infoBuildingDisplay model =
     case infoBuilding of
         Just building ->
             div []
-                [ p [ class "title" ] [ text building.name ]
-                , p [ class "subtitle" ] [ text "flavor text" ]
+                [ p [ class "title is-4" ] [ text building.name ]
+                , p [ class "subtitle is-6" ] [ text "flavor text" ]
                 , img [ class "image is-64x64", src (iconUrl building.image) ] []
 
                 --                , p [] [ text ("Amount: " ++ String.fromFloat building.amount) ]
@@ -662,6 +601,7 @@ resourceHeader =
             , th [ style "text-align" "right" ] [ text "amount" ]
             , th [ style "text-align" "right" ] [ text "rate" ]
             , th [ style "text-align" "center" ] [ text "" ]
+            , th [ style "text-align" "center" ] [ text "" ]
             ]
         ]
 
@@ -679,7 +619,23 @@ resourceRow model resource =
         , td [ style "text-align" "right" ] [ text (myFormat resource.amount ++ " / " ++ myFormat (getResourceLimit model resource)) ]
         , td [ style "text-align" "right" ] [ text (myFormat (getResourceProductionRate model resource)) ]
         , td [ style "text-align" "center" ] [ harvestButton resource ]
+        , td [style "width" "100px"] [resourceProgressBar model resource]
         ]
+
+
+resourceProgressBar model resource =
+    let
+        seconds =
+            (Util.timeDifference model.currentTime model.nextVillagerArrival)
+
+        percentString = String.fromFloat (100 * (5 - seconds) / 5)
+    in
+    case (resource.name, model.waitingForAVillager) of
+        ("villagers", True) ->
+            progress [ class "progress is-primary is-small", value percentString, Html.Attributes.max "100" ] [ text percentString ]
+
+        _ ->
+            text ""
 
 
 harvestButton : Resource -> Html Msg

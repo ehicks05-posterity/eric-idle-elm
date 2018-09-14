@@ -1,6 +1,7 @@
-module Util exposing (AggregationType(..), DisplayStatus(..), LockStatus(..), ResourceCost, ResourceEffect, SubType(..), flatten, getByName, getResourceCostByResource, hasName)
+module Util exposing (AggregationType(..), DisplayStatus(..), LockStatus(..), ResourceCost, ResourceEffect, SubType(..), flatten, formatTime, getByName, getResourceCostByResource, hasName, timeDifference)
 
 import Debug
+import Time
 
 
 flatten : List (List a) -> List a
@@ -65,3 +66,65 @@ type alias ResourceEffect =
     , aggregationType : AggregationType
     , amount : Float
     }
+
+
+
+-- TIME
+
+
+formatTime zone time =
+    let
+        militaryHour =
+            Time.toHour zone time
+
+        amPm =
+            if militaryHour < 12 then
+                "AM"
+
+            else
+                "PM"
+
+        hourNonMilitary =
+            if militaryHour < 12 then
+                militaryHour
+
+            else
+                militaryHour - 12
+
+        hour =
+            String.fromInt hourNonMilitary
+
+        minute =
+            formatTimeComponent (Time.toMinute zone time)
+
+        second =
+            formatTimeComponent (Time.toSecond zone time)
+    in
+    hour ++ ":" ++ minute ++ ":" ++ second ++ " " ++ amPm
+
+
+timeDifference posix1 posix2 =
+    let
+        millis =
+            Time.posixToMillis posix2 - Time.posixToMillis posix1
+
+        seconds =
+            toFloat millis / 1000
+    in
+    seconds
+
+
+
+-- adds leading zero if the time component would otherwise be one digit.
+
+
+formatTimeComponent int =
+    let
+        leadingZero =
+            if int < 10 then
+                "0"
+
+            else
+                ""
+    in
+    leadingZero ++ String.fromInt int
