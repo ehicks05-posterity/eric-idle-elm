@@ -14,8 +14,9 @@ import Maybe exposing (Maybe)
 import PreReq exposing (..)
 import Random
 import Resource exposing (..)
+import Task
 import Tech exposing (..)
-import Time
+import Time exposing (..)
 import Util exposing (..)
 
 
@@ -44,16 +45,19 @@ type alias Model =
     , preReqs : List PreReq.PreReq
     , showAll : Bool
     , isDarkly : Bool
+    , waitingForAVillager : Bool
     , nextVillagerArrival : Time.Posix
     , infoEntityName : String
     , infoEntityType : String
+    , currentTime : Time.Posix
+    , zone : Time.Zone
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model Resource.resources Laborer.initialLaborers Building.initialBuildings Tech.techs PreReq.preReqs True False (Time.millisToPosix 0) "" ""
-    , Cmd.none
+    ( Model Resource.resources Laborer.initialLaborers Building.initialBuildings Tech.techs PreReq.preReqs True False False (Time.millisToPosix 0) "" "" (Time.millisToPosix 0) Time.utc
+    , Task.perform AdjustTimeZone Time.here
     )
 
 
@@ -63,6 +67,7 @@ init _ =
 
 type Msg
     = Tick Time.Posix
+    | AdjustTimeZone Time.Zone
     | HarvestResource Resource
     | BuyBuilding Building
     | SellBuilding Building
@@ -77,7 +82,12 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Tick posixTime ->
-            ( doTick model
+            ( doTick model posixTime
+            , Cmd.none
+            )
+
+        AdjustTimeZone newZone ->
+            ( { model | zone = newZone }
             , Cmd.none
             )
 
@@ -122,32 +132,55 @@ update msg model =
             )
 
 
-doTick : Model -> Model
-doTick model =
+doTick : Model -> Time.Posix -> Model
+doTick model newPosixTime =
     let
+        newMillisTime =
+            Time.posixToMillis newPosixTime
+
         newPreReqs =
             PreReq.updatePreReqs model.preReqs
 
+        didAVillagerJustArrive =
+            didAVillagerArrive model newPosixTime
+
         newResources =
-            resourceTick model
+            resourceTick model didAVillagerJustArrive
 
-        nextVillagerArrival =
-            doVillagerArrival
+        newWaitingForAVillager =
+            not didAVillagerJustArrive && isThereRoomForAVillager model
+
+        newNextVillagerArrival =
+            if didAVillagerJustArrive then
+                Debug.log "case0" (Time.millisToPosix 0)
+
+            else if model.waitingForAVillager == False && isThereRoomForAVillager model then
+                Debug.log "case1" (Time.millisToPosix (newMillisTime + 5000))
+
+            else
+                Debug.log "case2" model.nextVillagerArrival
     in
-    { model | preReqs = newPreReqs, resources = newResources }
+    { model | currentTime = newPosixTime, preReqs = newPreReqs, resources = newResources, waitingForAVillager = newWaitingForAVillager, nextVillagerArrival = newNextVillagerArrival }
 
 
-resourceTick : Model -> List Resource
-resourceTick model =
+resourceTick : Model -> Bool -> List Resource
+resourceTick model didAVillagerJustArrive =
     let
         resources =
             model.resources
+
+        villagersToAdd =
+            if didAVillagerJustArrive then
+                1
+
+            else
+                0
     in
-    resources
+    updateResources resources (updateResourceAmount model (Util.getByName "villagers" resources) villagersToAdd)
 
 
-doVillagerArrival : Model -> Bool
-doVillagerArrival model =
+isThereRoomForAVillager : Model -> Bool
+isThereRoomForAVillager model =
     let
         villagers =
             Util.getByName "villagers" model.resources
@@ -157,11 +190,26 @@ doVillagerArrival model =
 
         villagersLimit =
             getResourceLimit model villagers
-
-        nextVillagerArrival =
-            model.nextVillagerArrival
     in
     villagersAmount < villagersLimit
+
+
+didAVillagerArrive : Model -> Time.Posix -> Bool
+didAVillagerArrive model posixTime =
+    if isThereRoomForAVillager model && model.waitingForAVillager && Time.posixToMillis model.nextVillagerArrival <= Time.posixToMillis posixTime then
+        True
+
+    else
+        False
+
+
+handleVillagerArrival : Model -> Time.Posix -> List Resource
+handleVillagerArrival model posixTime =
+    let
+        villagers =
+            Util.getByName "villagers" model.resources
+    in
+    updateResources model.resources (updateResourceAmount model villagers 1)
 
 
 getAllResourceEffects : Model -> List ResourceEffect
@@ -384,32 +432,110 @@ view model =
         [ div []
             [ stylesheet model.isDarkly
             , navBar model
+            , div []
+                [ text
+                    (if model.waitingForAVillager then
+                        "Waiting for a villager..." ++ "(" ++ timeUntilVillagerArrives model ++ ")"
+
+                     else
+                        "Not waiting for a villager..."
+                    )
+                ]
             , section [ class "section" ]
-                [ div [ class "container" ]
-                    [ div [ class "columns is-centered" ]
-                        [ div [ class "column" ]
-                            [ div [ class "columns is-centered is-multiline" ]
-                                [ div [ class "column is-narrow" ] [ resourcesTable model ]
-                                , div [ class "column is-narrow" ] [ buildingsTable model ]
-                                , div [ class "column is-narrow" ] [ laborersTable model ]
-                                ]
+                --                [ div [ class "container" ]
+                [ div [ class "columns is-centered" ]
+                    [ div [ class "column" ]
+                        [ div [ class "columns is-centered is-multiline" ]
+                            [ div [ class "column is-narrow" ] [ resourcesTable model ]
+                            , div [ class "column is-narrow" ] [ buildingsTable model ]
+                            , div [ class "column is-narrow" ] [ laborersTable model ]
                             ]
-                        , div [ class "column is-one-fifth" ]
-                            [ infoDisplay model
-                            ]
+                        ]
+                    , div [ class "column is-one-fifth" ]
+                        [ infoDisplay model
                         ]
                     ]
                 ]
+
+            --                ]
             ]
         ]
     }
 
+
+formatTime zone time =
+    let
+        militaryHour =
+            Time.toHour zone time
+
+        amPm =
+            if militaryHour < 12 then
+                "AM"
+
+            else
+                "PM"
+
+        hourNonMilitary =
+            if militaryHour < 12 then
+                militaryHour
+
+            else
+                militaryHour - 12
+
+        hour =
+            String.fromInt hourNonMilitary
+
+        minute =
+            formatTimeComponent (Time.toMinute zone time)
+
+        second =
+            formatTimeComponent (Time.toSecond zone time)
+    in
+    hour ++ ":" ++ minute ++ ":" ++ second ++ " " ++ amPm
+
+
+timeUntilVillagerArrives model =
+    timeDifference model.currentTime model.nextVillagerArrival
+
+
+timeDifference posix1 posix2 =
+    let
+        millis =
+            Time.posixToMillis posix2 - Time.posixToMillis posix1
+
+        seconds =
+            toFloat millis / 1000
+
+        displaySeconds =
+            myFormat seconds
+    in
+    displaySeconds ++ " seconds"
+
+
+formatTimeComponent int =
+    let
+        leadingZero =
+            if int < 10 then
+                "0"
+
+            else
+                ""
+    in
+    leadingZero ++ String.fromInt int
+
+
 infoDisplay : Model -> Html Msg
 infoDisplay model =
     case model.infoEntityType of
-        "building" -> infoBuildingDisplay model
-        "laborer" -> infoLaborerDisplay model
-        _ -> div [] []
+        "building" ->
+            infoBuildingDisplay model
+
+        "laborer" ->
+            infoLaborerDisplay model
+
+        _ ->
+            div [] []
+
 
 infoBuildingDisplay : Model -> Html Msg
 infoBuildingDisplay model =
@@ -428,7 +554,8 @@ infoBuildingDisplay model =
                 [ p [ class "title" ] [ text building.name ]
                 , p [ class "subtitle" ] [ text "flavor text" ]
                 , img [ class "image is-64x64", src (iconUrl building.image) ] []
-                , p [] [ text ("Amount: " ++ String.fromFloat building.amount) ]
+
+                --                , p [] [ text ("Amount: " ++ String.fromFloat building.amount) ]
                 , div [] (resourceCostsDisplay model (getMultipliedCosts building.cost building.amount))
                 , resourceEffectsDisplay building.effects
                 ]
@@ -454,8 +581,9 @@ infoLaborerDisplay model =
                 [ p [ class "title" ] [ text laborer.name ]
                 , p [ class "subtitle" ] [ text "flavor text" ]
                 , img [ class "image is-64x64", src (iconUrl laborer.image) ] []
-                , p [] [ text ("Amount: " ++ String.fromFloat laborer.amount) ]
-                , div [] (resourceCostsDisplay model [ResourceCost "villagers" 1])
+
+                --                , p [] [ text ("Amount: " ++ String.fromFloat laborer.amount) ]
+                , div [] (resourceCostsDisplay model [ ResourceCost "villagers" 1 ])
                 , resourceEffectsDisplay laborer.effects
                 ]
 
@@ -487,7 +615,9 @@ navBarMenu model =
                 [ div [ class "buttons" ] [ debugButton, darklyButton model.isDarkly ] ]
             ]
         , div [ class "navbar-end" ]
-            []
+            [ div [ class "navbar-item" ]
+                [ div [ class "" ] [ text (formatTime model.zone model.currentTime) ] ]
+            ]
         ]
 
 
@@ -628,7 +758,7 @@ resourceEffectDisplay effect =
                     "%"
     in
     tr [ class "" ]
-        [ td [] [ text ("Increases " ++ effect.resourceName ++ " " ++ subType ++ " by " ++ displayAmount ++ aggregationType) ]
+        [ td [] [ text ("Increase " ++ effect.resourceName ++ " " ++ subType ++ " by " ++ displayAmount ++ aggregationType) ]
         ]
 
 
