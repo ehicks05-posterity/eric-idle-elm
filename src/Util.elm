@@ -1,4 +1,4 @@
-module Util exposing (AggregationType(..), DisplayStatus(..), LockStatus(..), ResourceCost, ResourceEffect, SubType(..), flatten, formatTime, getByName, getResourceCostByResource, hasName, timeDifference)
+module Util exposing (AggregationType(..), DisplayStatus(..), LockStatus(..), ResourceCost, ResourceEffect, SubType(..), flatten, formatTime, getByName, getResourceCostByResource, hasName, removeExtension, timeDifference)
 
 import Debug
 import Time
@@ -7,6 +7,23 @@ import Time
 flatten : List (List a) -> List a
 flatten list =
     List.foldr (++) [] list
+
+
+removeExtension : String -> String
+removeExtension s =
+    let
+        indexes =
+            String.indexes "." s
+
+        lastIndex =
+            List.head (List.reverse indexes)
+    in
+    case lastIndex of
+        Just index ->
+            String.slice 0 index s
+
+        Nothing ->
+            s
 
 
 getByName : String -> List { a | name : String } -> { a | name : String }

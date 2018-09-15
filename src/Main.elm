@@ -430,7 +430,12 @@ view model =
     { title = "EricIdle"
     , body =
         [ div []
-            [ stylesheet model.isDarkly
+            [ Html.node "link"
+                [ Html.Attributes.rel "stylesheet"
+                , Html.Attributes.href "/ico2/game-icons.css"
+                ]
+                []
+            , stylesheet model.isDarkly
             , navBar model
             , div []
                 [ text
@@ -595,14 +600,15 @@ resourceHeader =
         [ tr []
             [ th [ colspan 100, style "text-align" "center" ] [ text "Resources" ]
             ]
-        , tr []
-            [ th [] [ text "" ]
-            , th [] [ text "name" ]
-            , th [ style "text-align" "right" ] [ text "amount" ]
-            , th [ style "text-align" "right" ] [ text "rate" ]
-            , th [ style "text-align" "center" ] [ text "" ]
-            , th [ style "text-align" "center" ] [ text "" ]
-            ]
+
+        --        , tr []
+        --            [ th [] [ text "" ]
+        --            , th [] [ text "name" ]
+        --            , th [ style "text-align" "right" ] [ text "amount" ]
+        --            , th [ style "text-align" "right" ] [ text "rate" ]
+        --            , th [ style "text-align" "center" ] [ text "" ]
+        --            , th [ style "text-align" "center" ] [ text "" ]
+        --            ]
         ]
 
 
@@ -614,28 +620,47 @@ resourceRows model =
 resourceRow : Model -> Resource -> Html Msg
 resourceRow model resource =
     tr []
-        [ td [] [ icon resource.image ]
-        , td [] [ text resource.name ]
-        , td [ style "text-align" "right" ] [ text (myFormat resource.amount ++ " / " ++ myFormat (getResourceLimit model resource)) ]
-        , td [ style "text-align" "right" ] [ text (myFormat (getResourceProductionRate model resource)) ]
-        , td [ style "text-align" "center" ] [ harvestButton resource ]
-        , td [style "width" "100px"] [resourceProgressBar model resource]
+        [ td []
+            [ div [ class "buttons has-addons" ]
+                [ --                  icon resource.image
+                  --                , button [class "button is-static"] [span [class "icon"] [i [style "color" "", style "background-color" "", style "height" "", style "width" "", class ("game-icon game-icon-" ++ (Util.removeExtension resource.image))] []] ]
+                  --                ,
+                  span [ style "width" "36px", class "icon" ] [ i [ style "font-size" "2em", class ("game-icon game-icon-" ++ Util.removeExtension resource.image) ] [] ]
+                , resourceName resource
+                , button [ class "button is-static", style "text-align" "right" ] [ text (myFormat resource.amount ++ " / " ++ myFormat (getResourceLimit model resource)) ]
+                , button [ class "button is-static", style "text-align" "right" ] [ text (myFormat (getResourceProductionRate model resource)) ]
+
+                --                , harvestButton resource
+                , br [] []
+                , resourceProgressBar model resource
+                ]
+            ]
         ]
 
 
 resourceProgressBar model resource =
     let
         seconds =
-            (Util.timeDifference model.currentTime model.nextVillagerArrival)
+            Util.timeDifference model.currentTime model.nextVillagerArrival
 
-        percentString = String.fromFloat (100 * (5 - seconds) / 5)
+        percentString =
+            String.fromFloat (100 * (5 - seconds) / 5)
     in
-    case (resource.name, model.waitingForAVillager) of
-        ("villagers", True) ->
+    case ( resource.name, model.waitingForAVillager ) of
+        ( "villagers", True ) ->
             progress [ class "progress is-primary is-small", value percentString, Html.Attributes.max "100" ] [ text percentString ]
 
         _ ->
             text ""
+
+
+resourceName : Resource -> Html Msg
+resourceName resource =
+    if resource.name == "food" then
+        button [ class "button is-expanded", onClick (HarvestResource resource) ] [ text resource.name ]
+
+    else
+        button [ class "button is-expanded is-static" ] [ text resource.name ]
 
 
 harvestButton : Resource -> Html Msg
