@@ -135,48 +135,98 @@ update msg model =
 doTick : Model -> Time.Posix -> Model
 doTick model newPosixTime =
     let
-        newMillisTime =
-            Time.posixToMillis newPosixTime
-
         newPreReqs =
             PreReq.updatePreReqs model.preReqs
 
         didAVillagerJustArrive =
             didAVillagerArrive model newPosixTime
 
+        -- todo: determine if food will go below 0
+        didAVillagerJustStarve =
+            False
+
+        villagersToAdd =
+            case ( didAVillagerJustArrive, didAVillagerJustStarve ) of
+                ( True, False ) ->
+                    1
+
+                ( False, True ) ->
+                    -1
+
+                _ ->
+                    0
+
         newResources =
-            resourceTick model didAVillagerJustArrive
+            resourceTick model villagersToAdd
 
         newWaitingForAVillager =
             not didAVillagerJustArrive && isThereRoomForAVillager model
 
+        newLaborers =
+            case ( didAVillagerJustArrive, didAVillagerJustStarve ) of
+                ( True, False ) ->
+                    List.map
+                        (\l ->
+                            if didAVillagerJustArrive && l.name == "idlers" then
+                                { l | amount = l.amount + 1 }
+
+                            else
+                                l
+                        )
+                        model.laborers
+
+                ( False, True ) ->
+                    let
+                        laborerToUpdate =
+                            model.laborers
+                                |> List.filter (\l -> l.amount > 0)
+                                |> List.head
+
+                        updatedLaborer =
+                            case laborerToUpdate of
+                                Just laborer ->
+                                    updateLaborerAmount laborer -1
+
+                                Nothing ->
+                                    Util.getByName "idlers" model.laborers
+                    in
+                    updateLaborers updatedLaborer model.laborers
+
+                _ ->
+                    model.laborers
+
         newNextVillagerArrival =
             if didAVillagerJustArrive then
-                Debug.log "case0" (Time.millisToPosix 0)
+                Time.millisToPosix 0
 
             else if model.waitingForAVillager == False && isThereRoomForAVillager model then
-                Debug.log "case1" (Time.millisToPosix (newMillisTime + 5000))
+                Time.millisToPosix (Time.posixToMillis newPosixTime + 5000)
 
             else
-                Debug.log "case2" model.nextVillagerArrival
+                model.nextVillagerArrival
     in
-    { model | currentTime = newPosixTime, preReqs = newPreReqs, resources = newResources, waitingForAVillager = newWaitingForAVillager, nextVillagerArrival = newNextVillagerArrival }
+    { model | currentTime = newPosixTime, preReqs = newPreReqs, resources = newResources, laborers = newLaborers, waitingForAVillager = newWaitingForAVillager, nextVillagerArrival = newNextVillagerArrival }
 
 
-resourceTick : Model -> Bool -> List Resource
-resourceTick model didAVillagerJustArrive =
+resourceTick : Model -> Float -> List Resource
+resourceTick model villagersToAdd =
     let
         resources =
-            model.resources
-
-        villagersToAdd =
-            if didAVillagerJustArrive then
-                1
-
-            else
-                0
+            List.map (applyProductionToResource model) model.resources
     in
     updateResources resources (updateResourceAmount model (Util.getByName "villagers" resources) villagersToAdd)
+
+
+applyProductionToResource : Model -> Resource -> Resource
+applyProductionToResource model resource =
+    let
+        rate =
+            getResourceProductionRate model resource
+
+        newAmount =
+            max 0 (min (resource.amount + rate) (getResourceLimit model resource))
+    in
+    { resource | amount = newAmount }
 
 
 isThereRoomForAVillager : Model -> Bool
@@ -497,7 +547,7 @@ infoBuildingDisplay model =
             div []
                 [ p [ class "title is-4" ] [ text building.name ]
                 , p [ class "subtitle is-6" ] [ text "flavor text" ]
-                , img [ class "image is-64x64", src (iconUrl building.image) ] []
+                , gameIcon building.image
 
                 --                , p [] [ text ("Amount: " ++ String.fromFloat building.amount) ]
                 , div [] (resourceCostsDisplay model (getMultipliedCosts building.cost building.amount))
@@ -622,10 +672,7 @@ resourceRow model resource =
     tr []
         [ td []
             [ div [ class "buttons has-addons" ]
-                [ --                  icon resource.image
-                  --                , button [class "button is-static"] [span [class "icon"] [i [style "color" "", style "background-color" "", style "height" "", style "width" "", class ("game-icon game-icon-" ++ (Util.removeExtension resource.image))] []] ]
-                  --                ,
-                  span [ style "width" "36px", class "icon" ] [ i [ style "font-size" "2em", class ("game-icon game-icon-" ++ Util.removeExtension resource.image) ] [] ]
+                [ gameIcon resource.image
                 , resourceName resource
                 , button [ class "button is-static", style "text-align" "right" ] [ text (myFormat resource.amount ++ " / " ++ myFormat (getResourceLimit model resource)) ]
                 , button [ class "button is-static", style "text-align" "right" ] [ text (myFormat (getResourceProductionRate model resource)) ]
@@ -635,6 +682,12 @@ resourceRow model resource =
                 , resourceProgressBar model resource
                 ]
             ]
+        ]
+
+
+gameIcon name =
+    span [ class "icon is-medium" ]
+        [ i [ style "font-size" "2em", style "color" "#333", class ("game-icon game-icon-" ++ name) ] []
         ]
 
 
@@ -695,10 +748,10 @@ resourceCostDisplay : Model -> ResourceCost -> Html msg
 resourceCostDisplay model cost =
     let
         resource =
-            Resource.getByName cost.resource model.resources
+            Util.getByName cost.resource model.resources
     in
     div [ class "tags has-addons" ]
-        [ span [ class "tag is-light", style "padding" "0px" ] [ img [ style "border-radius" "4px 0 0 4px", class "image is-32x32", src ("../ico/" ++ resource.image) ] [] ]
+        [ span [ class "tag is-light", style "padding" "0px" ] [ gameIcon resource.image ]
         , span [ class "tag is-medium" ] [ text (myFormat cost.amount) ]
         ]
 
@@ -797,7 +850,7 @@ canAffordResourceCost : List Resource -> ResourceCost -> Bool
 canAffordResourceCost resources resourceCost =
     let
         resourceAmount =
-            (Resource.getByName resourceCost.resource resources).amount
+            (Util.getByName resourceCost.resource resources).amount
     in
     resourceAmount >= resourceCost.amount
 
@@ -830,11 +883,11 @@ laborerRow model laborer =
                 [ button
                     [ class "button is-expanded"
                     , onClick (AddLaborer laborer)
-                    , disabled (not (haveAnIdler model.laborers))
+                    , disabled (not (haveAnIdler model.laborers) || laborer.name == "idlers")
                     ]
                     [ text laborer.name ]
                 , button [ class "button is-static" ] [ text (String.fromFloat laborer.amount) ]
-                , button [ class "button", onClick (RemoveLaborer laborer), disabled (laborer.amount <= 0) ] [ text "-" ]
+                , button [ class "button", onClick (RemoveLaborer laborer), disabled (laborer.amount <= 0 || laborer.name == "idlers") ] [ text "-" ]
                 ]
             ]
         ]

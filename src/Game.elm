@@ -1,24 +1,33 @@
-module Game exposing (..)
+module Game exposing (Entity, EntityType(..), defaultEntity)
 
-import Building exposing (..)
-import Dict exposing (Dict)
-import Laborer exposing (..)
-import Resource exposing (..)
-import Tech exposing (..)
 import Util exposing (..)
 
 
+type EntityType
+    = Resource
+    | Building
+    | Laborer
+    | PreReq
+    | Tech
 
--- GameData
---type alias GameData =
---    { resources : List Resource.Resource
---    , laborers : List Laborer.Laborer
---    , buildings : List Building.Building
---    , technologies : List Tech.Tech
---    , prereqs : List PreReq
---    }
---
---
---getGameData : GameData
---getGameData =
---    GameData Resource.resources Laborer.laborers Building.buildings Tech.techs preReqs
+
+type alias Entity =
+    { etype : EntityType
+    , index : Int
+    , name : String
+    , image : String
+    , prereq : String
+    , baseLimit : Float
+    , costs : List ResourceCost
+    , effects : List ResourceEffect
+
+    -- mutable
+    , discovered : Bool -- for Techs
+    , unlocked : LockStatus -- for PreReqs
+    , displayStatus : DisplayStatus
+    , amount : Float
+    }
+
+
+defaultEntity =
+    Entity Resource 0 "" "" "" 0.0 [] [] False Locked Hidden 0.0

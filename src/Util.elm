@@ -102,7 +102,7 @@ formatTime zone time =
                 "PM"
 
         hourNonMilitary =
-            if militaryHour < 12 then
+            if militaryHour <= 12 then
                 militaryHour
 
             else
